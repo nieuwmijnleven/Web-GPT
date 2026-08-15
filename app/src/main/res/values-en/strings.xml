@@ -238,4 +238,23 @@ Detection results are observed list-change clues and do not confirm the platform
     <string name="observe_profile_sheet_title">Choose a test profile</string>
     <string name="observe_profile_sheet_desc">The WebView will be recreated and the current address reloaded. Lists right before and after a profile change are not compared.</string>
     <string name="observe_profile_sheet_empty">No test profiles yet.</string>
+
+    <!-- 세션 및 사이트 데이터 초기화 (M단계) -->
+    <string name="reset_option_profile">Profile</string>
+    <string name="reset_option_keep_profile">Keep current profile</string>
+    <string name="reset_option_new_profile">Generate new profile</string>
+    <string name="reset_option_after">Open after reset</string>
+    <string name="reset_option_shorts">Open shorts</string>
+    <string name="reset_option_home">Open YouTube home</string>
+    <string name="reset_in_progress">Resetting…</string>
+    <string name="reset_result_title">Reset result</string>
+    <string name="reset_result_success">Cookies and site data have been reset. shorts monitor observation records are kept.</string>
+    <string name="reset_result_partial">Some items could not be reset. Please try those items again.</string>
+    <string name="reset_result_in_progress">A reset is already in progress. Try again after it finishes.</string>
+    <string name="reset_failed_items">Failed items</string>
+    <string name="reset_item_cookies">Cookies and login state</string>
+    <string name="reset_item_web_storage">Web storage (Local/Session Storage)</string>
+    <string name="reset_item_cache">WebView cache</string>
+    <string name="reset_item_history">Browsing history</string>
+    <string name="reset_item_form_data">Form data</string>
 </resources>

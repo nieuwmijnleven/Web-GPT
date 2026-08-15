@@ -243,4 +243,23 @@
     <string name="observe_profile_sheet_title">테스트 프로필 선택</string>
     <string name="observe_profile_sheet_desc">선택하면 WebView가 새로 생성되고 현재 주소를 다시 로드합니다. 프로필 변경 직전과 직후 목록은 비교하지 않습니다.</string>
     <string name="observe_profile_sheet_empty">아직 테스트 프로필이 없습니다.</string>
+
+    <!-- 세션 및 사이트 데이터 초기화 (M단계) -->
+    <string name="reset_option_profile">프로필</string>
+    <string name="reset_option_keep_profile">현재 프로필 유지</string>
+    <string name="reset_option_new_profile">새 프로필 생성</string>
+    <string name="reset_option_after">초기화 후 열기</string>
+    <string name="reset_option_shorts">쇼츠 열기</string>
+    <string name="reset_option_home">유튜브 홈 열기</string>
+    <string name="reset_in_progress">초기화 중…</string>
+    <string name="reset_result_title">초기화 결과</string>
+    <string name="reset_result_success">쿠키와 사이트 데이터 초기화가 완료되었습니다. shorts monitor 관찰 기록은 유지됩니다.</string>
+    <string name="reset_result_partial">일부 항목 초기화에 실패했습니다. 실패한 항목을 다시 시도하세요.</string>
+    <string name="reset_result_in_progress">이미 초기화가 진행 중입니다. 완료 후 다시 시도하세요.</string>
+    <string name="reset_failed_items">실패한 항목</string>
+    <string name="reset_item_cookies">쿠키·로그인 상태</string>
+    <string name="reset_item_web_storage">웹 저장소 (Local/Session Storage)</string>
+    <string name="reset_item_cache">WebView 캐시</string>
+    <string name="reset_item_history">탐색 기록</string>
+    <string name="reset_item_form_data">폼 데이터</string>
 </resources>

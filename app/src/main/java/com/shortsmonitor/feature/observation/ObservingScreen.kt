@@ -63,16 +63,22 @@ import com.shortsmonitor.core.model.SessionStatus
 import com.shortsmonitor.core.observer.ObservationRecorder
 import com.shortsmonitor.core.observer.ObserverBridge
 import com.shortsmonitor.core.observer.ObserverWatchdog
+import com.shortsmonitor.core.profile.ProfileGenerator
+import com.shortsmonitor.core.reset.ResetItem
+import com.shortsmonitor.core.reset.SessionResetter
 import com.shortsmonitor.core.webview.ShortsWebView
 import com.shortsmonitor.core.webview.ShortsWebViewController
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 private const val YOUTUBE_SHORTS_URL = "https://m.youtube.com/shorts"
+
+private const val YOUTUBE_HOME_URL = "https://m.youtube.com"
 
 /** 관찰 중 화면의 상태 요약. */
 private data class ObservingUiState(
@@ -129,6 +135,12 @@ fun ObservingScreen(
     var dismissedEventId by rememberSaveable { mutableStateOf<Long?>(null) }
     var showResetSheet by remember { mutableStateOf(false) }
     var showProfileSheet by remember { mutableStateOf(false) }
+    // 초기화 옵션과 결과. 초기화 중에는 중복 실행을 차단한다.
+    var resetKeepProfile by remember { mutableStateOf(true) }
+    var resetOpenHome by remember { mutableStateOf(false) }
+    var resetInProgress by remember { mutableStateOf(false) }
+    var resetResult by remember { mutableStateOf<SessionResetter.ResetResult?>(null) }
+    val sessionResetter = remember { SessionResetter() }
 
     val observerBridge = remember {
         ObserverBridge { message ->
@@ -140,8 +152,10 @@ fun ObservingScreen(
     }
     controller.observerBridge = observerBridge
 
-    // 프로필 변경 시 WebView를 새로 생성하기 위한 재생성 키. 키가 바뀌면 WebView가 다시 만들어진다.
+    // 프로필 변경·세션 초기화 시 WebView를 새로 생성하기 위한 재생성 키.
     var webViewRecreateKey by remember { mutableIntStateOf(0) }
+    // 세션 초기화 후 새 WebView가 로드할 주소.
+    var webViewStartUrl by remember { mutableStateOf(YOUTUBE_SHORTS_URL) }
 
     val uiState by produceState<ObservingUiState>(
         initialValue = ObservingUiState(),
@@ -224,7 +238,7 @@ fun ObservingScreen(
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         ShortsWebView(
             controller = controller,
-            startUrl = YOUTUBE_SHORTS_URL,
+            startUrl = webViewStartUrl,
             modifier = Modifier.fillMaxSize(),
             recreateKey = webViewRecreateKey,
             onExternalNavigation = { url ->
@@ -295,15 +309,69 @@ fun ObservingScreen(
     }
 
     if (showResetSheet) {
-        ConfirmationSheet(
-            visible = true,
-            title = stringResource(R.string.reset_session_title),
-            message = stringResource(R.string.reset_session_message),
-            confirmLabel = stringResource(R.string.reset_confirm),
-            dismissLabel = stringResource(R.string.action_cancel),
-            destructive = true,
-            onConfirm = { showResetSheet = false },
+        ResetOptionsSheet(
+            keepProfile = resetKeepProfile,
+            openHome = resetOpenHome,
+            inProgress = resetInProgress,
+            onKeepProfileChange = { resetKeepProfile = it },
+            onOpenHomeChange = { resetOpenHome = it },
+            onConfirm = {
+                if (!resetInProgress) {
+                    showResetSheet = false
+                    resetInProgress = true
+                    scope.launch {
+                        try {
+                            // 1) 현재 목록 저장 + 초기화 이벤트 저장 (비교 기준 교체)
+                            recorder.recordReset(sessionId, System.currentTimeMillis())
+                            // 2) 새 프로필 생성 옵션
+                            if (!resetKeepProfile) {
+                                val template = ProfileGenerator.randomTemplate()
+                                val generated = ProfileGenerator.generate(template)
+                                val existing = database.browserProfileDao().observeAll().first()
+                                val profile = BrowserProfileEntity(
+                                    name = context.getString(
+                                        R.string.profiles_name_format,
+                                        context.getString(templateLabelRes(template)),
+                                        existing.size + 1,
+                                    ),
+                                    templateType = template,
+                                    userAgent = generated.userAgent,
+                                    language = generated.language,
+                                    timezone = generated.timezone,
+                                    screenOverride = generated.screenOverride,
+                                    hardwareOverride = generated.hardwareOverride,
+                                    touchOverride = generated.touchOverride,
+                                    createdAt = System.currentTimeMillis(),
+                                )
+                                val id = database.browserProfileDao().insert(profile)
+                                database.browserProfileDao().updateLastUsed(
+                                    id,
+                                    System.currentTimeMillis(),
+                                )
+                                controller.activeProfile = profile.copy(id = id)
+                            }
+                            // 3) WebView 로딩 중지 → 사이트 데이터 정리 → 새 WebView 생성
+                            controller.stopLoading()
+                            val result = sessionResetter.reset(controller.webViewForReset())
+                            // 4) 새 WebView가 로드할 주소를 옵션에 따라 정한다.
+                            webViewStartUrl = if (resetOpenHome) YOUTUBE_HOME_URL else YOUTUBE_SHORTS_URL
+                            // 5) 재생성 키 증가 → 기존 WebView 폐기·새 WebView 생성·주소 재로드
+                            webViewRecreateKey++
+                            resetResult = result
+                        } finally {
+                            resetInProgress = false
+                        }
+                    }
+                }
+            },
             onDismiss = { showResetSheet = false },
+        )
+    }
+
+    resetResult?.let { result ->
+        ResetResultDialog(
+            result = result,
+            onDismiss = { resetResult = null },
         )
     }
 }
@@ -593,6 +661,194 @@ private fun ActiveSessionPanel(
             }
         }
     }
+}
+
+/** 프로필 템플릿 이름 리소스. 초기화 시 새 프로필 생성(L단계·M단계)에 사용한다. */
+private fun templateLabelRes(template: com.shortsmonitor.core.model.ProfileTemplateType): Int =
+    when (template) {
+        com.shortsmonitor.core.model.ProfileTemplateType.SMALL_ANDROID -> R.string.profile_template_small
+        com.shortsmonitor.core.model.ProfileTemplateType.ANDROID -> R.string.profile_template_android
+        com.shortsmonitor.core.model.ProfileTemplateType.LARGE_ANDROID -> R.string.profile_template_large
+        com.shortsmonitor.core.model.ProfileTemplateType.ANDROID_TABLET -> R.string.profile_template_tablet
+    }
+
+/**
+ * 세션 및 사이트 데이터 초기화 옵션 시트 (M단계).
+ * 삭제 대상(쿠키·로그인 상태·웹 저장소·캐시·탐색 기록·폼 데이터)을 안내하고
+ * 프로필 유지/새 프로필 생성, 초기화 후 쇼츠/홈 열기를 선택한다.
+ * 초기화 진행 중에는 중복 실행을 차단한다.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun ResetOptionsSheet(
+    keepProfile: Boolean,
+    openHome: Boolean,
+    inProgress: Boolean,
+    onKeepProfileChange: (Boolean) -> Unit,
+    onOpenHomeChange: (Boolean) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        modifier = modifier,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.reset_session_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.reset_session_message),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(14.dp))
+
+            Text(
+                text = stringResource(R.string.reset_option_profile),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ResetOptionChip(
+                    label = stringResource(R.string.reset_option_keep_profile),
+                    selected = keepProfile,
+                    onClick = { onKeepProfileChange(true) },
+                    modifier = Modifier.weight(1f),
+                )
+                ResetOptionChip(
+                    label = stringResource(R.string.reset_option_new_profile),
+                    selected = !keepProfile,
+                    onClick = { onKeepProfileChange(false) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            Spacer(Modifier.height(14.dp))
+            Text(
+                text = stringResource(R.string.reset_option_after),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ResetOptionChip(
+                    label = stringResource(R.string.reset_option_shorts),
+                    selected = !openHome,
+                    onClick = { onOpenHomeChange(false) },
+                    modifier = Modifier.weight(1f),
+                )
+                ResetOptionChip(
+                    label = stringResource(R.string.reset_option_home),
+                    selected = openHome,
+                    onClick = { onOpenHomeChange(true) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            Spacer(Modifier.height(20.dp))
+            PrimaryActionButton(
+                text = stringResource(
+                    if (inProgress) R.string.reset_in_progress else R.string.reset_confirm,
+                ),
+                onClick = onConfirm,
+                enabled = !inProgress,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedActionButton(
+                text = stringResource(R.string.action_cancel),
+                onClick = onDismiss,
+                enabled = !inProgress,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ResetOptionChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    androidx.compose.material3.FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(text = label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        modifier = modifier,
+    )
+}
+
+/** 초기화 결과 다이얼로그. 실패 항목이 있으면 명시한다. */
+@Composable
+private fun ResetResultDialog(
+    result: SessionResetter.ResetResult,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = modifier,
+        title = {
+            Text(text = stringResource(R.string.reset_result_title))
+        },
+        text = {
+            Column {
+                Text(
+                    text = stringResource(
+                        if (result.ok) {
+                            R.string.reset_result_success
+                        } else if (result.skippedWhileRunning) {
+                            R.string.reset_result_in_progress
+                        } else {
+                            R.string.reset_result_partial
+                        },
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                if (result.failed.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = stringResource(R.string.reset_failed_items),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = com.shortsmonitor.core.design.StatusError,
+                    )
+                    result.failed.forEach { item ->
+                        Text(
+                            text = "• " + stringResource(resetItemLabel(item)),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.action_confirm))
+            }
+        },
+    )
+}
+
+private fun resetItemLabel(item: ResetItem): Int = when (item) {
+    ResetItem.COOKIES -> R.string.reset_item_cookies
+    ResetItem.WEB_STORAGE -> R.string.reset_item_web_storage
+    ResetItem.CACHE -> R.string.reset_item_cache
+    ResetItem.HISTORY -> R.string.reset_item_history
+    ResetItem.FORM_DATA -> R.string.reset_item_form_data
 }
 
 /**

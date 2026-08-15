@@ -45,6 +45,14 @@ class ShortsWebViewController(private val context: Context) {
 
     val hasWebView: Boolean get() = webView != null
 
+    /** 쿠키·사이트 데이터 초기화(M단계) 등에서 캐시·히스토리·폼 정리에 사용하는 현재 WebView. */
+    fun webViewForReset(): WebView? = webView
+
+    /** 현재 WebView의 로딩을 중지한다. 초기화(M단계) 흐름에서 사용한다. */
+    fun stopLoading() {
+        webView?.stopLoading()
+    }
+
     /**
      * WebView를 생성하고 초기 설정을 적용한다.
      * [savedState]가 있으면 상태를 복원하고, 없으면 [startUrl]을 로드한다.

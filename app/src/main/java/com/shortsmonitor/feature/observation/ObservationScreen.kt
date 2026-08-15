@@ -59,6 +59,8 @@ import com.shortsmonitor.core.design.components.StatusChip
 import com.shortsmonitor.core.logging.ShortsLog
 import com.shortsmonitor.core.model.SessionEndReason
 import com.shortsmonitor.core.model.SessionStatus
+import com.shortsmonitor.core.reset.ResetItem
+import com.shortsmonitor.core.reset.SessionResetter
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -90,6 +92,9 @@ fun ObservationScreen(
     val scope = rememberCoroutineScope()
     var retryKey by remember { mutableIntStateOf(0) }
     var showResetSheet by remember { mutableStateOf(false) }
+    var resetResult by remember { mutableStateOf<SessionResetter.ResetResult?>(null) }
+    var resetInProgress by remember { mutableStateOf(false) }
+    val sessionResetter = remember { SessionResetter() }
 
     val uiState by produceState<ObservationHomeUiState>(
         initialValue = ObservationHomeUiState.Loading,
@@ -186,8 +191,28 @@ fun ObservationScreen(
             confirmLabel = stringResource(R.string.reset_confirm),
             dismissLabel = stringResource(R.string.action_cancel),
             destructive = true,
-            onConfirm = { showResetSheet = false },
+            onConfirm = {
+                showResetSheet = false
+                if (!resetInProgress) {
+                    resetInProgress = true
+                    scope.launch {
+                        try {
+                            // 관찰 홈에는 WebView가 없으므로 쿠키·웹 저장소만 정리한다.
+                            resetResult = sessionResetter.reset(webView = null)
+                        } finally {
+                            resetInProgress = false
+                        }
+                    }
+                }
+            },
             onDismiss = { showResetSheet = false },
+        )
+    }
+
+    resetResult?.let { result ->
+        ResetResultDialog(
+            result = result,
+            onDismiss = { resetResult = null },
         )
     }
 }
@@ -522,6 +547,64 @@ private fun QuickAction(
             )
         }
     }
+}
+
+/** 초기화 결과 다이얼로그 (M단계). 실패 항목이 있으면 명시한다. */
+@Composable
+private fun ResetResultDialog(
+    result: SessionResetter.ResetResult,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = modifier,
+        title = {
+            Text(text = stringResource(R.string.reset_result_title))
+        },
+        text = {
+            Column {
+                Text(
+                    text = stringResource(
+                        when {
+                            result.ok -> R.string.reset_result_success
+                            result.skippedWhileRunning -> R.string.reset_result_in_progress
+                            else -> R.string.reset_result_partial
+                        },
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                if (result.failed.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = stringResource(R.string.reset_failed_items),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = StatusError,
+                    )
+                    result.failed.forEach { item ->
+                        Text(
+                            text = "• " + stringResource(resetItemLabel(item)),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.action_confirm))
+            }
+        },
+    )
+}
+
+private fun resetItemLabel(item: ResetItem): Int = when (item) {
+    ResetItem.COOKIES -> R.string.reset_item_cookies
+    ResetItem.WEB_STORAGE -> R.string.reset_item_web_storage
+    ResetItem.CACHE -> R.string.reset_item_cache
+    ResetItem.HISTORY -> R.string.reset_item_history
+    ResetItem.FORM_DATA -> R.string.reset_item_form_data
 }
 
 private fun sessionStatusColor(status: SessionStatus): Color = when (status) {

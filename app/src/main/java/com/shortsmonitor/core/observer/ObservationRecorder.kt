@@ -171,6 +171,33 @@ class ObservationRecorder(
         ShortsLog.d("Recorded profile change: session=$sessionId")
     }
 
+    /**
+     * 세션·사이트 데이터 초기화(M단계)를 기록한다.
+     * 현재 목록을 스냅샷으로 저장하고 SESSION_RESET 사유로 탐지 엔진의
+     * 기준 목록을 교체해, 초기화 직전과 직후 목록을 서로 비교하지 않는다.
+     */
+    suspend fun recordReset(sessionId: Long, ts: Long) {
+        val json = JSONArray()
+        lastVideoIds.forEach { json.put(it) }
+        val snapshotId = listSnapshotDao.insert(
+            ListSnapshotEntity(
+                sessionId = sessionId,
+                createdAt = ts,
+                videoIdsJson = json.toString(),
+                changeReason = SnapshotChangeReason.SESSION_RESET,
+            ),
+        )
+        // SESSION_RESET는 기준 교체 사유이므로 비교 없이 기준 목록만 바뀐다.
+        insertionDetector.process(
+            sessionId = sessionId,
+            videoIds = lastVideoIds,
+            reason = SnapshotChangeReason.SESSION_RESET,
+            snapshotId = snapshotId,
+            ts = ts,
+        )
+        ShortsLog.d("Recorded session reset: session=$sessionId")
+    }
+
     private suspend fun recordExposure(sessionId: Long, message: ObserverMessage.ActiveShortChanged) {
         val (videoId, _) = ShortIdentity.resolve(message.short)
         // 이전 노출을 종료하고 새 노출 이벤트를 생성한다. 같은 영상이 다시 노출되면 새 이벤트가 된다.
