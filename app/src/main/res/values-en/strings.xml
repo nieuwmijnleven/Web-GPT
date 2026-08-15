@@ -45,7 +45,38 @@ No records are sent to external servers. Resetting cookies or site data keeps ob
 
 Detection results are observed list-change clues and do not confirm the platform\'s intent or cause.</string>
     <string name="action_confirm">OK</string>
+    <string name="action_cancel">Cancel</string>
     <string name="settings_view_onboarding">Show onboarding again</string>
+
+    <!-- 관찰 홈 (D단계) -->
+    <string name="home_status_observing">Observing</string>
+    <string name="home_status_idle">Idle</string>
+    <string name="status_completed">Completed</string>
+    <string name="status_interrupted">Interrupted</string>
+    <string name="status_error">Error</string>
+    <string name="home_current_profile_label">Current test profile</string>
+    <string name="home_current_profile_default">Default profile</string>
+    <string name="home_last_observed">Last observed</string>
+    <string name="home_total_sessions">Total sessions</string>
+    <string name="home_recent_events">Recent events</string>
+    <string name="home_start_observation">Start observing shorts</string>
+    <string name="home_active_session_title">Active session</string>
+    <string name="home_interrupted_session_title">Recoverable interrupted session</string>
+    <string name="home_end_session">End observation</string>
+    <string name="home_resume_session">Resume</string>
+    <string name="home_action_profiles">Change profile</string>
+    <string name="home_action_reset">Reset session</string>
+    <string name="home_action_events">Recent events</string>
+    <string name="home_action_export">Export logs</string>
+    <string name="home_recent_sessions">Recent sessions</string>
+    <string name="home_no_sessions">No sessions recorded yet.</string>
+    <string name="home_error_message">Could not load observation home data.</string>
+    <string name="session_name_format">Session %1$d</string>
+    <string name="session_metric_shorts">Shorts</string>
+    <string name="session_metric_events">Events</string>
+    <string name="reset_session_title">Reset session and site data</string>
+    <string name="reset_session_message">Cookies and site data will be deleted. shorts monitor observation records are kept.</string>
+    <string name="reset_confirm">Reset</string>
 
     <!-- 공통 컴포넌트 -->
     <string name="action_back">Back</string>

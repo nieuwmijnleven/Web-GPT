@@ -140,7 +140,25 @@ private fun ShortsMonitorMainApp() {
             startDestination = ShortsMonitorDestination.Observation.route,
             modifier = Modifier.padding(innerPadding),
         ) {
-            composable(ShortsMonitorDestination.Observation.route) { ObservationScreen() }
+            composable(ShortsMonitorDestination.Observation.route) {
+                ObservationScreen(
+                    onNavigateToSessions = {
+                        navController.navigate(ShortsMonitorDestination.Sessions.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateToEvents = {
+                        navController.navigate(ShortsMonitorDestination.Events.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateToProfiles = {
+                        navController.navigate(ShortsMonitorDestination.Profiles.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                )
+            }
             composable(ShortsMonitorDestination.Sessions.route) { SessionsScreen() }
             composable(ShortsMonitorDestination.Events.route) { EventsScreen() }
             composable(ShortsMonitorDestination.Profiles.route) { ProfilesScreen() }

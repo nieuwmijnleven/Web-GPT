@@ -5,6 +5,8 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.shortsmonitor.core.database.entity.ObservationSessionEntity
+import com.shortsmonitor.core.model.SessionEndReason
+import com.shortsmonitor.core.model.SessionStatus
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -24,4 +26,15 @@ interface ObservationSessionDao {
 
     @Query("SELECT COUNT(*) FROM observation_session")
     suspend fun count(): Int
+
+    @Query(
+        "UPDATE observation_session SET status = :status, ended_at = :endedAt, end_reason = :endReason " +
+            "WHERE id = :id",
+    )
+    suspend fun updateStatus(
+        id: Long,
+        status: SessionStatus,
+        endedAt: Long?,
+        endReason: SessionEndReason?,
+    )
 }

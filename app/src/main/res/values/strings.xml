@@ -49,7 +49,38 @@
 
 감지 결과는 관찰된 목록 변화 정황이며 플랫폼의 의도나 원인을 확정하지 않습니다.</string>
     <string name="action_confirm">확인</string>
+    <string name="action_cancel">취소</string>
     <string name="settings_view_onboarding">온보딩 다시 보기</string>
+
+    <!-- 관찰 홈 (D단계) -->
+    <string name="home_status_observing">관찰 중</string>
+    <string name="home_status_idle">대기 중</string>
+    <string name="status_completed">정상 완료</string>
+    <string name="status_interrupted">중단됨</string>
+    <string name="status_error">오류</string>
+    <string name="home_current_profile_label">현재 테스트 프로필</string>
+    <string name="home_current_profile_default">기본 프로필</string>
+    <string name="home_last_observed">마지막 관찰</string>
+    <string name="home_total_sessions">전체 세션</string>
+    <string name="home_recent_events">최근 의심 이벤트</string>
+    <string name="home_start_observation">쇼츠 관찰 시작</string>
+    <string name="home_active_session_title">진행 중 세션</string>
+    <string name="home_interrupted_session_title">복구 가능한 중단 세션</string>
+    <string name="home_end_session">관찰 종료</string>
+    <string name="home_resume_session">이어보기</string>
+    <string name="home_action_profiles">프로필 변경</string>
+    <string name="home_action_reset">세션 초기화</string>
+    <string name="home_action_events">최근 이벤트</string>
+    <string name="home_action_export">로그 내보내기</string>
+    <string name="home_recent_sessions">최근 세션</string>
+    <string name="home_no_sessions">아직 기록된 세션이 없습니다.</string>
+    <string name="home_error_message">관찰 홈 데이터를 불러오지 못했습니다.</string>
+    <string name="session_name_format">세션 %1$d</string>
+    <string name="session_metric_shorts">쇼츠</string>
+    <string name="session_metric_events">이벤트</string>
+    <string name="reset_session_title">세션 및 사이트 데이터 초기화</string>
+    <string name="reset_session_message">쿠키와 사이트 데이터를 삭제합니다. shorts monitor 관찰 기록은 유지됩니다.</string>
+    <string name="reset_confirm">초기화</string>
 
     <!-- 공통 컴포넌트 -->
     <string name="action_back">뒤로 가기</string>
