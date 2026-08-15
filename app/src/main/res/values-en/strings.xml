@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">shorts monitor</string>
+
+    <string name="nav_observation">Observe</string>
+    <string name="nav_sessions">History</string>
+    <string name="nav_events">Events</string>
+    <string name="nav_profiles">Profiles</string>
+    <string name="nav_settings">Settings</string>
+
+    <string name="screen_observation_title">Observation</string>
+    <string name="screen_sessions_title">Session History</string>
+    <string name="screen_events_title">Suspected Events</string>
+    <string name="screen_profiles_title">Browser Test Profiles</string>
+    <string name="screen_settings_title">Settings</string>
+
+    <string name="placeholder_observation">The observation home will appear here.</string>
+    <string name="placeholder_sessions">No sessions recorded yet.</string>
+    <string name="placeholder_events">No suspected events yet.</string>
+    <string name="placeholder_profiles">No test profiles yet.</string>
+
+    <!-- 공통 컴포넌트 -->
+    <string name="action_back">Back</string>
+    <string name="action_retry">Retry</string>
+    <string name="state_error_title">Something went wrong</string>
+    <string name="profile_active">Active</string>
+
+    <string name="settings_save_snapshots">Save list snapshots</string>
+    <string name="settings_save_snapshots_desc">Store snapshot of the observed shorts list during observation.</string>
+    <string name="settings_more_coming">Observation settings, notifications, data management and WebView diagnostics will be added in later stages.</string>
+</resources>

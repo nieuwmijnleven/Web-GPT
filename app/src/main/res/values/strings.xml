@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 앱 이름: 첨부 디자인 표기의 `Shorts Monitor`를 소문자 `shorts monitor`로 통일 -->
+    <string name="app_name">shorts monitor</string>
+
+    <!-- 하단 내비게이션 -->
+    <string name="nav_observation">관찰</string>
+    <string name="nav_sessions">기록</string>
+    <string name="nav_events">이벤트</string>
+    <string name="nav_profiles">프로필</string>
+    <string name="nav_settings">설정</string>
+
+    <!-- 화면 제목 -->
+    <string name="screen_observation_title">관찰</string>
+    <string name="screen_sessions_title">세션 기록</string>
+    <string name="screen_events_title">의심 이벤트</string>
+    <string name="screen_profiles_title">브라우저 테스트 프로필</string>
+    <string name="screen_settings_title">설정</string>
+
+    <!-- 빈 화면 안내 (단계별 구현 전 자리 표시) -->
+    <string name="placeholder_observation">쇼츠 관찰 홈이 여기에 표시됩니다.</string>
+    <string name="placeholder_sessions">아직 기록된 세션이 없습니다.</string>
+    <string name="placeholder_events">아직 의심 이벤트가 없습니다.</string>
+    <string name="placeholder_profiles">아직 테스트 프로필이 없습니다.</string>
+
+    <!-- 공통 컴포넌트 -->
+    <string name="action_back">뒤로 가기</string>
+    <string name="action_retry">다시 시도</string>
+    <string name="state_error_title">오류가 발생했습니다</string>
+    <string name="profile_active">활성</string>
+
+    <!-- 설정 -->
+    <string name="settings_save_snapshots">목록 스냅샷 저장</string>
+    <string name="settings_save_snapshots_desc">관찰 중 쇼츠 목록 스냅샷을 기록에 저장합니다.</string>
+    <string name="settings_more_coming">관찰 설정·알림·데이터 관리·WebView 진단은 이후 단계에서 추가됩니다.</string>
+</resources>
