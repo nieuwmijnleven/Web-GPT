@@ -28,4 +28,8 @@ interface BrowserProfileDao {
 
     @Query("UPDATE browser_profile SET last_used_at = :lastUsedAt WHERE id = :id")
     suspend fun updateLastUsed(id: Long, lastUsedAt: Long)
+
+    /** 전체 프로필 삭제 (O단계 전체 데이터 삭제). 삭제된 프로필 수를 반환한다. */
+    @Query("DELETE FROM browser_profile")
+    suspend fun deleteAll(): Int
 }

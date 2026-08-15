@@ -187,4 +187,45 @@ class InsertionDetectorTest {
         assertEquals("x", events[0].prevVideoId)
         assertEquals("b", events[0].nextVideoId)
     }
+
+    @Test
+    fun candidate_isConfirmedImmediatelyWhenStabilizationDisabled() {
+        // O단계 '의심 후보 안정화' 해제: 후보 등록 즉시 확정한다.
+        process(listOf("a", "b"), SnapshotChangeReason.INITIAL, snapshotId = 1)
+        val events = detector.process(
+            sessionId = 1L,
+            videoIds = listOf("a", "x", "b"),
+            reason = SnapshotChangeReason.ITEM_ADDED,
+            snapshotId = 2,
+            ts = 1_000L,
+            stabilize = false,
+        )
+        assertEquals(1, events.size)
+        assertEquals("x", events[0].newVideoId)
+        assertEquals("a", events[0].prevVideoId)
+        assertEquals("b", events[0].nextVideoId)
+    }
+
+    @Test
+    fun nullSnapshotId_isAcceptedWhenSnapshotSavingDisabled() {
+        // O단계 '목록 스냅샷 저장' 해제: 스냅샷 식별자가 없어도 탐지는 동작한다.
+        process(listOf("a", "b"), SnapshotChangeReason.INITIAL, snapshotId = 1)
+        val first = detector.process(
+            sessionId = 1L,
+            videoIds = listOf("a", "x", "b"),
+            reason = SnapshotChangeReason.ITEM_ADDED,
+            snapshotId = null,
+            ts = 1_000L,
+        )
+        assertTrue(first.isEmpty())
+        val confirmed = detector.process(
+            sessionId = 1L,
+            videoIds = listOf("a", "x", "b"),
+            reason = SnapshotChangeReason.ITEM_ADDED,
+            snapshotId = null,
+            ts = 2_000L,
+        )
+        assertEquals(1, confirmed.size)
+        assertEquals(null, confirmed[0].afterSnapshotId)
+    }
 }

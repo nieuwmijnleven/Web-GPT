@@ -27,7 +27,7 @@ class InsertionDetector {
         val prevVideoId: String?,
         val nextVideoId: String?,
         val beforeSnapshotId: Long?,
-        val afterSnapshotId: Long,
+        val afterSnapshotId: Long?,
         val detectedAt: Long,
         val evidence: InsertionEvidence,
     )
@@ -43,7 +43,7 @@ class InsertionDetector {
     private data class PendingCandidate(
         val key: CandidateKey,
         val beforeSnapshotId: Long?,
-        val afterSnapshotId: Long,
+        val afterSnapshotId: Long?,
         val detectedAt: Long,
         val observedCount: Int,
     )
@@ -58,15 +58,18 @@ class InsertionDetector {
      *
      * @param videoIds 현재 스냅샷의 영상 식별값 순서
      * @param reason   이번 스냅샷의 변경 사유
-     * @param snapshotId 현재 스냅샷의 데이터베이스 식별자
+     * @param snapshotId 현재 스냅샷의 데이터베이스 식별자 (스냅샷 저장이 꺼져 있으면 null)
      * @param ts       현재 스냅샷 생성 시각
+     * @param stabilize true면 다음 스냅샷에서 앞뒤 관계가 유지될 때 확정하고,
+     *                  false면 후보 등록 즉시 확정한다 (O단계 '의심 후보 안정화' 설정).
      */
     fun process(
         sessionId: Long,
         videoIds: List<String>,
         reason: SnapshotChangeReason,
-        snapshotId: Long,
+        snapshotId: Long?,
         ts: Long,
+        stabilize: Boolean = true,
     ): List<DetectedInsertion> {
         // 기준이 바뀌는 스냅샷: 비교하지 않고 기준 목록만 교체한다.
         if (reason in RESET_REASONS) {
@@ -86,7 +89,7 @@ class InsertionDetector {
 
         val events = mutableListOf<DetectedInsertion>()
 
-        // 1) 이번 스냅샷에서 새로 발견된 후보 등록 (다음 스냅샷에서 안정화 확인)
+        // 1) 이번 스냅샷에서 새로 발견된 후보 등록
         val newlyRegistered = mutableSetOf<CandidateKey>()
         for (key in detectCandidates(previous, videoIds)) {
             if (key in confirmedKeys || pendingCandidates.containsKey(key)) continue
@@ -100,7 +103,27 @@ class InsertionDetector {
             newlyRegistered += key
         }
 
-        // 2) 이전에 등록된 후보의 안정화 확인: 신규 항목과 앞뒤 관계가 유지되면 확정
+        // 2) 후보 확정
+        //    - 안정화 설정: 다음 스냅샷에서 앞뒤 관계가 유지될 때 확정
+        //    - 안정화 해제: 등록 즉시 확정 (O단계 설정)
+        if (!stabilize) {
+            newlyRegistered.forEach { key ->
+                val candidate = pendingCandidates.remove(key) ?: return@forEach
+                confirmedKeys += key
+                events += DetectedInsertion(
+                    sessionId = sessionId,
+                    newVideoId = key.newVideoId,
+                    prevVideoId = key.prevVideoId,
+                    nextVideoId = key.nextVideoId,
+                    beforeSnapshotId = candidate.beforeSnapshotId,
+                    afterSnapshotId = candidate.afterSnapshotId,
+                    detectedAt = candidate.detectedAt,
+                    evidence = InsertionEvidence.confirmed(),
+                )
+            }
+            return events
+        }
+
         val iterator = pendingCandidates.entries.iterator()
         while (iterator.hasNext()) {
             val entry = iterator.next()

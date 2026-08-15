@@ -30,6 +30,8 @@ class ObservationRecorder(
     private val listSnapshotDao: ListSnapshotDao,
     private val insertionEventDao: InsertionEventDao,
     private val insertionDetector: InsertionDetector = InsertionDetector(),
+    /** 관찰 설정(O단계) 공급자. 메시지를 처리할 때마다 현재 값을 읽어 즉시 반영한다. */
+    private val settings: () -> ObservationSettings = { ObservationSettings() },
 ) {
 
     /** 스냅샷에 반영할 마지막 활성 영상. 페이지 정보·활성 변경 메시지로 갱신된다. */
@@ -55,20 +57,25 @@ class ObservationRecorder(
     }
 
     private suspend fun recordSnapshot(sessionId: Long, snapshot: ObserverMessage.ListSnapshot) {
+        val currentSettings = settings()
         val resolved = snapshot.shorts.map { short -> short to ShortIdentity.resolve(short) }
         resolved.forEachIndexed { index, (short, identity) ->
             val (videoId, status) = identity
             val prevVideoId = resolved.getOrNull(index - 1)?.second?.videoId
             val nextVideoId = resolved.getOrNull(index + 1)?.second?.videoId
+            // 메타데이터·썸네일 저장 설정(O단계)을 반영한다.
+            val title = if (currentSettings.saveMetadata) short.title.ifBlank { null } else null
+            val channelName = if (currentSettings.saveMetadata) short.channel.ifBlank { null } else null
+            val thumbnailUrl = if (currentSettings.saveThumbnails) short.thumbnail.ifBlank { null } else null
             if (observedShortDao.getByVideoId(sessionId, videoId) == null) {
                 observedShortDao.insert(
                     ObservedShortEntity(
                         sessionId = sessionId,
                         videoId = videoId,
                         videoUrl = short.url.ifBlank { null },
-                        title = short.title.ifBlank { null },
-                        channelName = short.channel.ifBlank { null },
-                        thumbnailUrl = short.thumbnail.ifBlank { null },
+                        title = title,
+                        channelName = channelName,
+                        thumbnailUrl = thumbnailUrl,
                         identityStatus = status,
                         firstSeenAt = snapshot.ts,
                         lastSeenAt = snapshot.ts,
@@ -81,9 +88,9 @@ class ObservationRecorder(
                     sessionId = sessionId,
                     videoId = videoId,
                     lastSeenAt = snapshot.ts,
-                    title = short.title.ifBlank { null },
-                    channelName = short.channel.ifBlank { null },
-                    thumbnailUrl = short.thumbnail.ifBlank { null },
+                    title = title,
+                    channelName = channelName,
+                    thumbnailUrl = thumbnailUrl,
                     prevVideoId = prevVideoId,
                     nextVideoId = nextVideoId,
                 )
@@ -93,18 +100,30 @@ class ObservationRecorder(
         val videoIdsJson = JSONArray()
         resolved.forEach { (_, identity) -> videoIdsJson.put(identity.videoId) }
         lastVideoIds = resolved.map { it.second.videoId }
-        val snapshotId = listSnapshotDao.insert(
-            ListSnapshotEntity(
-                sessionId = sessionId,
-                createdAt = snapshot.ts,
-                currentUrl = snapshot.url.ifBlank { null },
-                activeVideoId = lastActiveVideoId,
-                videoIdsJson = videoIdsJson.toString(),
-                changeReason = snapshot.reason,
-                domRevision = snapshot.revision.toLong(),
-            ),
+        // 목록 스냅샷 저장 설정(O단계): 꺼져 있으면 저장하지 않고 탐지에는 null 스냅샷 식별자를 넘긴다.
+        val snapshotId: Long? = if (currentSettings.saveListSnapshots) {
+            listSnapshotDao.insert(
+                ListSnapshotEntity(
+                    sessionId = sessionId,
+                    createdAt = snapshot.ts,
+                    currentUrl = snapshot.url.ifBlank { null },
+                    activeVideoId = lastActiveVideoId,
+                    videoIdsJson = videoIdsJson.toString(),
+                    changeReason = snapshot.reason,
+                    domRevision = snapshot.revision.toLong(),
+                ),
+            )
+        } else {
+            null
+        }
+        recordInsertions(
+            sessionId,
+            resolved.map { it.second.videoId },
+            snapshot.reason,
+            snapshotId,
+            snapshot.ts,
+            stabilize = currentSettings.stabilizeCandidates,
         )
-        recordInsertions(sessionId, resolved.map { it.second.videoId }, snapshot.reason, snapshotId, snapshot.ts)
         ShortsLog.d("Recorded snapshot: session=$sessionId shorts=${resolved.size} reason=${snapshot.reason}")
     }
 
@@ -113,8 +132,9 @@ class ObservationRecorder(
         sessionId: Long,
         videoIds: List<String>,
         reason: SnapshotChangeReason,
-        snapshotId: Long,
+        snapshotId: Long?,
         ts: Long,
+        stabilize: Boolean = true,
     ) {
         val detected = insertionDetector.process(
             sessionId = sessionId,
@@ -122,6 +142,7 @@ class ObservationRecorder(
             reason = reason,
             snapshotId = snapshotId,
             ts = ts,
+            stabilize = stabilize,
         )
         detected.forEach { insertion ->
             insertionEventDao.insert(

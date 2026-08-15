@@ -105,11 +105,14 @@ object SessionExportBuilder {
     }
 
     /** 한 세션을 목적별 CSV 4종으로 직렬화한다. */
-    fun buildCsvFiles(data: SessionExportData): List<CsvFile> = listOf(
-        CsvFile(csvFileNames()[0], sessionCsv(data)),
-        CsvFile(csvFileNames()[1], shortsCsv(data)),
-        CsvFile(csvFileNames()[2], exposuresCsv(data)),
-        CsvFile(csvFileNames()[3], eventsCsv(data)),
+    fun buildCsvFiles(data: SessionExportData): List<CsvFile> = buildCsvFilesAll(listOf(data))
+
+    /** 여러 세션을 목적별 CSV 4종으로 직렬화한다 (O단계 데이터 설정 'CSV 내보내기'). */
+    fun buildCsvFilesAll(all: List<SessionExportData>): List<CsvFile> = listOf(
+        CsvFile(csvFileNames()[0], sessionCsv(all)),
+        CsvFile(csvFileNames()[1], shortsCsv(all)),
+        CsvFile(csvFileNames()[2], exposuresCsv(all)),
+        CsvFile(csvFileNames()[3], eventsCsv(all)),
     )
 
     /** CSV 파일 (파일명 + 내용). */
@@ -214,61 +217,69 @@ object SessionExportBuilder {
 
     // --- CSV ---
 
-    private fun sessionCsv(data: SessionExportData): String {
+    private fun sessionCsv(all: List<SessionExportData>): String {
         val sb = StringBuilder()
         sb.appendLine("session_id,name,status,started_at,ended_at,start_url,end_reason,app_version,webview_info")
-        val s = data.session
-        sb.appendLine(
-            listOf(
-                s.sessionId, s.name, s.status.name, s.startedAt.toString(),
-                s.endedAt?.toString().orEmpty(), s.startUrl.orEmpty(),
-                s.endReason?.name.orEmpty(), s.appVersion.orEmpty(), s.webViewInfo.orEmpty(),
-            ).joinToString(",") { csvEscape(it) },
-        )
+        all.forEach { data ->
+            val s = data.session
+            sb.appendLine(
+                listOf(
+                    s.sessionId, s.name, s.status.name, s.startedAt.toString(),
+                    s.endedAt?.toString().orEmpty(), s.startUrl.orEmpty(),
+                    s.endReason?.name.orEmpty(), s.appVersion.orEmpty(), s.webViewInfo.orEmpty(),
+                ).joinToString(",") { csvEscape(it) },
+            )
+        }
         return sb.toString()
     }
 
-    private fun shortsCsv(data: SessionExportData): String {
+    private fun shortsCsv(all: List<SessionExportData>): String {
         val sb = StringBuilder()
         sb.appendLine("session_id,video_id,video_url,title,channel_name,thumbnail_url,identity_status,first_seen_at,last_seen_at,activated_at,prev_video_id,next_video_id")
-        data.shorts.forEach { short ->
-            sb.appendLine(
-                listOf(
-                    data.session.sessionId, short.videoId, short.videoUrl.orEmpty(),
-                    short.title.orEmpty(), short.channelName.orEmpty(), short.thumbnailUrl.orEmpty(),
-                    short.identityStatus.name, short.firstSeenAt.toString(), short.lastSeenAt.toString(),
-                    short.activatedAt?.toString().orEmpty(), short.prevVideoId.orEmpty(), short.nextVideoId.orEmpty(),
-                ).joinToString(",") { csvEscape(it) },
-            )
+        all.forEach { data ->
+            data.shorts.forEach { short ->
+                sb.appendLine(
+                    listOf(
+                        data.session.sessionId, short.videoId, short.videoUrl.orEmpty(),
+                        short.title.orEmpty(), short.channelName.orEmpty(), short.thumbnailUrl.orEmpty(),
+                        short.identityStatus.name, short.firstSeenAt.toString(), short.lastSeenAt.toString(),
+                        short.activatedAt?.toString().orEmpty(), short.prevVideoId.orEmpty(), short.nextVideoId.orEmpty(),
+                    ).joinToString(",") { csvEscape(it) },
+                )
+            }
         }
         return sb.toString()
     }
 
-    private fun exposuresCsv(data: SessionExportData): String {
+    private fun exposuresCsv(all: List<SessionExportData>): String {
         val sb = StringBuilder()
         sb.appendLine("session_id,video_id,exposed_at,exposed_until,exposure_order")
-        data.exposures.forEach { exposure ->
-            sb.appendLine(
-                listOf(
-                    data.session.sessionId, exposure.videoId, exposure.exposedAt.toString(),
-                    exposure.exposedUntil?.toString().orEmpty(), exposure.exposureOrder.toString(),
-                ).joinToString(",") { csvEscape(it) },
-            )
+        all.forEach { data ->
+            data.exposures.forEach { exposure ->
+                sb.appendLine(
+                    listOf(
+                        data.session.sessionId, exposure.videoId, exposure.exposedAt.toString(),
+                        exposure.exposedUntil?.toString().orEmpty(), exposure.exposureOrder.toString(),
+                    ).joinToString(",") { csvEscape(it) },
+                )
+            }
         }
         return sb.toString()
     }
 
-    private fun eventsCsv(data: SessionExportData): String {
+    private fun eventsCsv(all: List<SessionExportData>): String {
         val sb = StringBuilder()
         sb.appendLine("session_id,new_video_id,prev_video_id,next_video_id,detected_at,auto_verdict,user_verdict,user_memo")
-        data.events.forEach { event ->
-            sb.appendLine(
-                listOf(
-                    data.session.sessionId, event.newVideoId, event.prevVideoId.orEmpty(),
-                    event.nextVideoId.orEmpty(), event.detectedAt.toString(),
-                    event.autoVerdict.name, event.userVerdict.name, event.userMemo.orEmpty(),
-                ).joinToString(",") { csvEscape(it) },
-            )
+        all.forEach { data ->
+            data.events.forEach { event ->
+                sb.appendLine(
+                    listOf(
+                        data.session.sessionId, event.newVideoId, event.prevVideoId.orEmpty(),
+                        event.nextVideoId.orEmpty(), event.detectedAt.toString(),
+                        event.autoVerdict.name, event.userVerdict.name, event.userMemo.orEmpty(),
+                    ).joinToString(",") { csvEscape(it) },
+                )
+            }
         }
         return sb.toString()
     }

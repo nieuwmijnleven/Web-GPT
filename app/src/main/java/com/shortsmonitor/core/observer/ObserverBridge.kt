@@ -108,6 +108,8 @@ class ObserverBridge(private val onMessage: (ObserverMessage) -> Unit) {
             lastHeartbeatAtMs = message.ts
             lastHeartbeatRevision = message.revision
         }
+        // WebView 진단 화면(O단계)용 진단 상태를 갱신한다.
+        ObserverDiagnostics.record(message)
         ShortsLog.d("Observer message: ${message::class.simpleName} (seq=${message.seq})")
         onMessage(message)
     }

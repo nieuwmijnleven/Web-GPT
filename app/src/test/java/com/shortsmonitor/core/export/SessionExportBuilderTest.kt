@@ -207,6 +207,21 @@ class SessionExportBuilderTest {
     }
 
     @Test
+    fun `buildCsvFilesAll concatenates rows across sessions`() {
+        val files = SessionExportBuilder.buildCsvFilesAll(listOf(data(), data()))
+
+        assertEquals(4, files.size)
+        // 세션 CSV: 헤더 1줄 + 세션 2줄
+        assertEquals(3, files[0].content.trimEnd().split("\n").size)
+        // 쇼츠 CSV: 헤더 1줄 + 쇼츠 2줄 (세션마다 1개)
+        assertEquals(3, files[1].content.trimEnd().split("\n").size)
+        // 노출 CSV: 헤더 1줄 + 노출 2줄
+        assertEquals(3, files[2].content.trimEnd().split("\n").size)
+        // 이벤트 CSV: 헤더 1줄 + 이벤트 2줄
+        assertEquals(3, files[3].content.trimEnd().split("\n").size)
+    }
+
+    @Test
     fun `csvEscape wraps only when needed`() {
         assertEquals("plain", SessionExportBuilder.csvEscape("plain"))
         assertEquals("\"a,b\"", SessionExportBuilder.csvEscape("a,b"))

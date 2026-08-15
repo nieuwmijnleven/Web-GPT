@@ -48,6 +48,7 @@ import com.shortsmonitor.feature.profiles.ProfilesScreen
 import com.shortsmonitor.feature.sessions.SessionDetailScreen
 import com.shortsmonitor.feature.sessions.SessionsScreen
 import com.shortsmonitor.feature.settings.SettingsScreen
+import com.shortsmonitor.feature.settings.WebViewDiagnosticsScreen
 import kotlinx.coroutines.launch
 
 /** 쇼츠 관찰 중 화면 라우트. 세션 식별자를 인자로 받는다. 관찰 중에는 하단 내비게이션을 숨긴다. */
@@ -61,6 +62,9 @@ private const val EVENT_DETAIL_ROUTE = "events/{eventId}"
 
 /** 프로필 상세 라우트. 프로필 식별자를 인자로 받는다. 상단 바는 화면 자체에서 표시한다. */
 private const val PROFILE_DETAIL_ROUTE = "profiles/{profileId}"
+
+/** WebView 진단 라우트. 상단 바는 화면 자체에서 표시한다. */
+private const val DIAGNOSTICS_ROUTE = "settings/diagnostics"
 
 /**
  * 하단 내비게이션 5개 기본 경로.
@@ -130,7 +134,7 @@ private fun ShortsMonitorMainApp() {
     val currentRoute = navBackStackEntry?.destination?.route
     Scaffold(
         topBar = {
-            if (currentRoute != SESSION_DETAIL_ROUTE) {
+            if (currentRoute != SESSION_DETAIL_ROUTE && currentRoute != DIAGNOSTICS_ROUTE) {
                 ShortsMonitorTopBar(title = stringResource(R.string.app_name))
             }
         },
@@ -256,7 +260,18 @@ private fun ShortsMonitorMainApp() {
                     onBack = { navController.popBackStack() },
                 )
             }
-            composable(ShortsMonitorDestination.Settings.route) { SettingsScreen() }
+            composable(ShortsMonitorDestination.Settings.route) {
+                SettingsScreen(
+                    onOpenDiagnostics = {
+                        navController.navigate(DIAGNOSTICS_ROUTE) { launchSingleTop = true }
+                    },
+                )
+            }
+            composable(DIAGNOSTICS_ROUTE) {
+                WebViewDiagnosticsScreen(
+                    onBack = { navController.popBackStack() },
+                )
+            }
         }
     }
 }

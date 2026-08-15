@@ -48,4 +48,12 @@ interface ObservationSessionDao {
     /** 세션 삭제. 하위 기록(쇼츠·노출·스냅샷·의심 이벤트)은 FK CASCADE로 함께 삭제된다. */
     @Query("DELETE FROM observation_session WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    /** 전체 세션 삭제 (O단계 데이터 설정). 하위 기록은 FK CASCADE로 함께 삭제된다. 삭제된 세션 수를 반환한다. */
+    @Query("DELETE FROM observation_session")
+    suspend fun deleteAll(): Int
+
+    /** [cutoff] 이전에 시작된 세션 삭제 (O단계 기록 보존 정책 정리). 삭제된 세션 수를 반환한다. */
+    @Query("DELETE FROM observation_session WHERE started_at < :cutoff")
+    suspend fun deleteOlderThan(cutoff: Long): Int
 }

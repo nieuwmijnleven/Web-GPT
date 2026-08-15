@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import com.shortsmonitor.app.R
 import com.shortsmonitor.app.ShortsMonitorApplication
 import com.shortsmonitor.core.database.entity.BrowserProfileEntity
+import com.shortsmonitor.core.notification.NotificationHelper
 import com.shortsmonitor.core.database.entity.InsertionEventEntity
 import com.shortsmonitor.core.database.entity.ObservedShortEntity
 import com.shortsmonitor.core.design.StatusActive
@@ -61,7 +62,9 @@ import com.shortsmonitor.core.logging.ShortsLog
 import com.shortsmonitor.core.model.SessionEndReason
 import com.shortsmonitor.core.model.SessionStatus
 import com.shortsmonitor.core.observer.ObservationRecorder
+import com.shortsmonitor.core.observer.ObservationSettings
 import com.shortsmonitor.core.observer.ObserverBridge
+import com.shortsmonitor.core.observer.ObserverMessage
 import com.shortsmonitor.core.observer.ObserverWatchdog
 import com.shortsmonitor.core.profile.ProfileGenerator
 import com.shortsmonitor.core.reset.ResetItem
@@ -119,12 +122,51 @@ fun ObservingScreen(
         (context.applicationContext as ShortsMonitorApplication).database
     }
     val controller = remember { ShortsWebViewController(context) }
+    val settingsRepository = remember {
+        (context.applicationContext as ShortsMonitorApplication).settingsRepository
+    }
+
+    // 관찰 설정(O단계): 메시지 처리마다 현재 값을 읽어 즉시 반영한다.
+    var observationSettings by remember { mutableStateOf(ObservationSettings()) }
+    LaunchedEffect(settingsRepository) {
+        combine(
+            settingsRepository.saveListSnapshots,
+            settingsRepository.stabilizeCandidates,
+            settingsRepository.saveMetadata,
+            settingsRepository.saveThumbnails,
+        ) { snapshots, stabilize, metadata, thumbnails ->
+            ObservationSettings(snapshots, stabilize, metadata, thumbnails)
+        }.collect { observationSettings = it }
+    }
+    // 알림 설정(O단계): 배너·시스템 알림·진동·오류/이벤트 알림 여부.
+    var bannerEnabled by remember { mutableStateOf(true) }
+    var systemNotificationsEnabled by remember { mutableStateOf(false) }
+    var vibrationEnabled by remember { mutableStateOf(true) }
+    var errorNotificationsEnabled by remember { mutableStateOf(true) }
+    var eventNotificationsEnabled by remember { mutableStateOf(true) }
+    LaunchedEffect(settingsRepository) {
+        combine(
+            settingsRepository.inAppBanner,
+            settingsRepository.systemNotifications,
+            settingsRepository.vibration,
+            settingsRepository.errorNotifications,
+            settingsRepository.suspectedEventNotifications,
+        ) { banner, system, vibration, errors, events ->
+            bannerEnabled = banner
+            systemNotificationsEnabled = system
+            vibrationEnabled = vibration
+            errorNotificationsEnabled = errors
+            eventNotificationsEnabled = events
+        }.collect { }
+    }
+
     val recorder = remember {
         ObservationRecorder(
             observedShortDao = database.observedShortDao(),
             exposureEventDao = database.exposureEventDao(),
             listSnapshotDao = database.listSnapshotDao(),
             insertionEventDao = database.insertionEventDao(),
+            settings = { observationSettings },
         )
     }
 
@@ -144,6 +186,16 @@ fun ObservingScreen(
 
     val observerBridge = remember {
         ObserverBridge { message ->
+            // 관찰 오류 알림(O단계 알림 설정): 관찰 오류 메시지 수신 시 시스템 알림을 전송한다.
+            if (message is ObserverMessage.ObserverError) {
+                NotificationHelper.notifyObserverError(
+                    context = context,
+                    text = message.message ?: message.code,
+                    systemEnabled = systemNotificationsEnabled,
+                    errorEnabled = errorNotificationsEnabled,
+                    vibrate = vibrationEnabled,
+                )
+            }
             if (!paused) {
                 ShortsLog.d("Observer message received: ${message::class.simpleName}")
                 scope.launch { recorder.record(sessionId, message) }
@@ -187,6 +239,26 @@ fun ObservingScreen(
             }.collect { value = it }
         } catch (e: Exception) {
             ShortsLog.e("Observing: failed to load session state", e)
+        }
+    }
+
+    // 의심 이벤트 시스템 알림(O단계 알림 설정): 새 확정 이벤트가 나타나면 한 번만 전송한다.
+    var notifiedEventId by rememberSaveable { mutableStateOf<Long?>(null) }
+    LaunchedEffect(uiState.latestEvent?.id) {
+        val event = uiState.latestEvent ?: return@LaunchedEffect
+        if (event.id != notifiedEventId) {
+            notifiedEventId = event.id
+            NotificationHelper.notifySuspectedEvent(
+                context = context,
+                title = context.getString(R.string.notification_event_title),
+                text = context.getString(
+                    R.string.notification_event_text,
+                    uiState.latestEventVideo?.title ?: event.newVideoId,
+                ),
+                systemEnabled = systemNotificationsEnabled,
+                eventEnabled = eventNotificationsEnabled,
+                vibrate = vibrationEnabled,
+            )
         }
     }
 
@@ -266,7 +338,7 @@ fun ObservingScreen(
             )
 
             val latestEvent = uiState.latestEvent
-            if (latestEvent != null && latestEvent.id != dismissedEventId) {
+            if (bannerEnabled && latestEvent != null && latestEvent.id != dismissedEventId) {
                 InsertionAlertCard(
                     title = uiState.latestEventVideo?.title
                         ?: latestEvent.newVideoId,

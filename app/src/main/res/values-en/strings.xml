@@ -267,4 +267,73 @@ Detection results are observed list-change clues and do not confirm the platform
     <string name="export_in_progress">Exporting…</string>
     <string name="export_error_title">Export failed</string>
     <string name="export_error_message">The file could not be saved. Please try again.</string>
+
+    <!-- O stage: Settings and diagnostics -->
+    <string name="settings_section_observation">Observation settings</string>
+    <string name="settings_stabilize_candidates">Stabilize suspected candidates</string>
+    <string name="settings_stabilize_candidates_desc">Only alerts once a new item stays in the next list snapshot.</string>
+    <string name="settings_save_metadata">Save metadata</string>
+    <string name="settings_save_metadata_desc">Stores video titles and channel names in the log.</string>
+    <string name="settings_save_thumbnails">Save thumbnail URLs</string>
+    <string name="settings_save_thumbnails_desc">Stores thumbnail URLs in the log.</string>
+
+    <string name="settings_section_notifications">Notification settings</string>
+    <string name="settings_in_app_banner">In-app banner</string>
+    <string name="settings_in_app_banner_desc">Shows the suspected event alert card on the observing screen.</string>
+    <string name="settings_system_notifications">System notifications</string>
+    <string name="settings_system_notifications_desc">Delivers suspected events and errors as device notifications. Requires notification permission.</string>
+    <string name="settings_vibration">Vibration</string>
+    <string name="settings_vibration_desc">Vibrates when a notification is shown.</string>
+    <string name="settings_error_notifications">Error notifications</string>
+    <string name="settings_error_notifications_desc">Sends a system notification when an observation error occurs.</string>
+    <string name="settings_event_notifications">Suspected event notifications</string>
+    <string name="settings_event_notifications_desc">Sends a system notification when a suspected event is confirmed.</string>
+
+    <string name="settings_section_data">Data settings</string>
+    <string name="settings_retention_policy">Retention policy</string>
+    <string name="settings_retention_policy_desc">Applied when cleaning up session logs older than the retention period. Observation logs are stored only on this device.</string>
+    <string name="settings_retention_all">Keep all</string>
+    <string name="settings_retention_30">30 days</string>
+    <string name="settings_retention_7">7 days</string>
+    <string name="settings_cleanup_expired">Clean up expired logs</string>
+    <string name="settings_cleanup_expired_title">Clean up expired logs</string>
+    <string name="settings_cleanup_expired_message">Deletes sessions older than the selected retention period along with their records (shorts, exposures, snapshots, suspected events). This cannot be undone.</string>
+    <string name="settings_cleanup_expired_result">Cleaned up %1$d session logs.</string>
+    <string name="settings_cleanup_expired_none">The retention policy is "Keep all", so there is nothing to clean up.</string>
+    <string name="settings_delete_all_sessions">Delete sessions</string>
+    <string name="settings_delete_all_sessions_title">Delete all sessions</string>
+    <string name="settings_delete_all_sessions_message">Deletes all sessions and their records (shorts, exposures, snapshots, suspected events). This cannot be undone.</string>
+    <string name="settings_delete_sessions_result">Deleted %1$d sessions.</string>
+    <string name="settings_delete_all_data">Delete all data</string>
+    <string name="settings_delete_all_title">Delete all data</string>
+    <string name="settings_delete_all_message">Deletes all session logs and browser test profiles. This cannot be undone.</string>
+    <string name="settings_delete_all_result">Deleted %1$d sessions and %2$d profiles.</string>
+    <string name="settings_delete_done">Deletion complete</string>
+    <string name="settings_export_json">Export as JSON</string>
+    <string name="settings_export_csv">Export as CSV</string>
+
+    <string name="settings_section_diagnostics">WebView diagnostics</string>
+    <string name="settings_open_diagnostics">Open WebView diagnostics</string>
+    <string name="diagnostics_title">WebView diagnostics</string>
+    <string name="diagnostics_copy">Copy diagnostics</string>
+    <string name="diagnostics_copied">Copied to clipboard.</string>
+    <string name="diagnostics_webview_package">WebView provider package</string>
+    <string name="diagnostics_webview_version">WebView version</string>
+    <string name="diagnostics_supported_features">Supported features</string>
+    <string name="diagnostics_current_ua">Current User-Agent</string>
+    <string name="diagnostics_active_profile">Active profile</string>
+    <string name="diagnostics_observer_status">Observer status</string>
+    <string name="diagnostics_observer_alive">Running</string>
+    <string name="diagnostics_observer_stopped">Stopped</string>
+    <string name="diagnostics_observer_none">No observation yet</string>
+    <string name="diagnostics_last_heartbeat">Last status check time</string>
+    <string name="diagnostics_last_dom_error">Last DOM error</string>
+    <string name="diagnostics_unknown">Unknown</string>
+    <string name="diagnostics_none">None</string>
+
+    <string name="notification_channel_events">shorts monitor suspected events</string>
+    <string name="notification_channel_errors">shorts monitor observation errors</string>
+    <string name="notification_event_title">Insertion suspected</string>
+    <string name="notification_event_text">A new video appeared mid-list: %1$s</string>
+    <string name="notification_error_title">shorts monitor observation error</string>
 </resources>
