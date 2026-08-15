@@ -19,6 +19,9 @@ interface BrowserProfileDao {
     @Query("SELECT * FROM browser_profile WHERE id = :id")
     suspend fun getById(id: Long): BrowserProfileEntity?
 
+    @Query("SELECT * FROM browser_profile WHERE id = :id")
+    fun observeById(id: Long): Flow<BrowserProfileEntity?>
+
     @Query("UPDATE browser_profile SET last_used_at = :lastUsedAt WHERE id = :id")
     suspend fun updateLastUsed(id: Long, lastUsedAt: Long)
 }

@@ -200,4 +200,47 @@
     <string name="event_detail_memo_hint">판정 근거나 의견을 입력하세요.</string>
     <string name="event_detail_memo_saved">자동 저장됨</string>
     <string name="event_detail_memo_saving">저장 중…</string>
+
+    <!-- 브라우저 테스트 프로필 (L단계) -->
+    <string name="profiles_generate">무작위 생성</string>
+    <string name="profiles_generating">생성 중…</string>
+    <string name="profiles_generate_desc">호환 가능한 템플릿을 먼저 선택하고 그 범위 안에서 값을 생성합니다. WebView에서 노출되는 일부 값을 변경하는 것이며 실제 IP나 물리적 하드웨어를 변경하지 않습니다.</string>
+    <string name="profiles_name_format">%1$s %2$d</string>
+    <string name="profiles_duplicate_name">%1$s 복제본 %2$d</string>
+    <string name="profiles_empty_title">아직 테스트 프로필이 없습니다. 무작위 생성을 눌러 시작하세요.</string>
+    <string name="profiles_error_message">프로필을 불러오지 못했습니다.</string>
+    <string name="profile_device_type">기기 유형</string>
+    <string name="profile_ua">User-Agent</string>
+    <string name="profile_language">언어</string>
+    <string name="profile_timezone">시간대</string>
+    <string name="profile_screen">화면 표현값</string>
+    <string name="profile_hardware">하드웨어 노출값</string>
+    <string name="profile_touch">터치 지원 표현</string>
+    <string name="profile_touch_supported">지원</string>
+    <string name="profile_touch_unsupported">미지원</string>
+    <string name="profile_created_at">생성 시각</string>
+    <string name="profile_last_used">마지막 사용</string>
+    <string name="profile_active_label">상태</string>
+    <string name="profile_inactive">비활성</string>
+    <string name="profile_apply">적용</string>
+    <string name="profile_duplicate">복제</string>
+    <string name="profile_template_small">소형 Android 모바일</string>
+    <string name="profile_template_android">일반 Android 모바일</string>
+    <string name="profile_template_large">대형 Android 모바일</string>
+    <string name="profile_template_tablet">Android 태블릿</string>
+    <string name="profile_apply_result_title">적용 결과</string>
+    <string name="profile_apply_result_empty">적용할 항목이 없습니다.</string>
+    <string name="profile_item_user_agent">User-Agent</string>
+    <string name="profile_item_user_agent_metadata">User-Agent 메타데이터</string>
+    <string name="profile_item_language">언어</string>
+    <string name="profile_item_timezone">시간대</string>
+    <string name="profile_item_screen">화면 크기</string>
+    <string name="profile_item_hardware">CPU/메모리</string>
+    <string name="profile_item_touch">터치 지원</string>
+    <string name="profile_applied">적용됨</string>
+    <string name="profile_unsupported">지원되지 않음</string>
+    <string name="observe_panel_change_profile">프로필 변경</string>
+    <string name="observe_profile_sheet_title">테스트 프로필 선택</string>
+    <string name="observe_profile_sheet_desc">선택하면 WebView가 새로 생성되고 현재 주소를 다시 로드합니다. 프로필 변경 직전과 직후 목록은 비교하지 않습니다.</string>
+    <string name="observe_profile_sheet_empty">아직 테스트 프로필이 없습니다.</string>
 </resources>

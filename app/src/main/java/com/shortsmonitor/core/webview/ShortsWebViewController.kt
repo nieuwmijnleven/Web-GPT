@@ -13,8 +13,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.shortsmonitor.app.BuildConfig
+import com.shortsmonitor.core.database.entity.BrowserProfileEntity
 import com.shortsmonitor.core.logging.ShortsLog
 import com.shortsmonitor.core.observer.ObserverBridge
+import com.shortsmonitor.core.profile.ProfileApplier
 
 /**
  * WebView 생명주기와 설정을 관리하는 전용 컨트롤러.
@@ -36,6 +38,9 @@ class ShortsWebViewController(private val context: Context) {
     /** JavaScript 관찰기 브리지. loadUrl 이전에 attach되어야 한다. */
     var observerBridge: ObserverBridge? = null
 
+    /** WebView 생성 시 적용할 브라우저 테스트 프로필 (L단계). null이면 기본값을 사용한다. */
+    var activeProfile: BrowserProfileEntity? = null
+
     private var webView: WebView? = null
 
     val hasWebView: Boolean get() = webView != null
@@ -48,6 +53,8 @@ class ShortsWebViewController(private val context: Context) {
         webView?.destroy()
         val created = WebView(context)
         applySettings(created.settings)
+        // 브라우저 테스트 프로필 적용: User-Agent 등 생성 시점 설정을 반영한다.
+        activeProfile?.let { ProfileApplier.applyToSettings(created.settings, it) }
         created.setWebViewClient(createWebViewClient())
         created.webChromeClient = createWebChromeClient()
         if (BuildConfig.DEBUG) {

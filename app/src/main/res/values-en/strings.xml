@@ -195,4 +195,47 @@ Detection results are observed list-change clues and do not confirm the platform
     <string name="event_detail_memo_hint">Add evidence or notes.</string>
     <string name="event_detail_memo_saved">Auto-saved</string>
     <string name="event_detail_memo_saving">Saving…</string>
+
+    <!-- 브라우저 테스트 프로필 (L단계) -->
+    <string name="profiles_generate">Generate random</string>
+    <string name="profiles_generating">Generating…</string>
+    <string name="profiles_generate_desc">A compatible template is chosen first, then values are generated within its range. This changes some values exposed by the WebView and does not change your real IP or physical hardware.</string>
+    <string name="profiles_name_format">%1$s %2$d</string>
+    <string name="profiles_duplicate_name">%1$s copy %2$d</string>
+    <string name="profiles_empty_title">No test profiles yet. Tap Generate random to get started.</string>
+    <string name="profiles_error_message">Could not load profiles.</string>
+    <string name="profile_device_type">Device type</string>
+    <string name="profile_ua">User-Agent</string>
+    <string name="profile_language">Language</string>
+    <string name="profile_timezone">Timezone</string>
+    <string name="profile_screen">Screen</string>
+    <string name="profile_hardware">Hardware values</string>
+    <string name="profile_touch">Touch support</string>
+    <string name="profile_touch_supported">Supported</string>
+    <string name="profile_touch_unsupported">Not supported</string>
+    <string name="profile_created_at">Created at</string>
+    <string name="profile_last_used">Last used</string>
+    <string name="profile_active_label">Status</string>
+    <string name="profile_inactive">Inactive</string>
+    <string name="profile_apply">Apply</string>
+    <string name="profile_duplicate">Duplicate</string>
+    <string name="profile_template_small">Small Android phone</string>
+    <string name="profile_template_android">Standard Android phone</string>
+    <string name="profile_template_large">Large Android phone</string>
+    <string name="profile_template_tablet">Android tablet</string>
+    <string name="profile_apply_result_title">Apply result</string>
+    <string name="profile_apply_result_empty">No items to apply.</string>
+    <string name="profile_item_user_agent">User-Agent</string>
+    <string name="profile_item_user_agent_metadata">User-Agent metadata</string>
+    <string name="profile_item_language">Language</string>
+    <string name="profile_item_timezone">Timezone</string>
+    <string name="profile_item_screen">Screen size</string>
+    <string name="profile_item_hardware">CPU/memory</string>
+    <string name="profile_item_touch">Touch support</string>
+    <string name="profile_applied">Applied</string>
+    <string name="profile_unsupported">Not supported</string>
+    <string name="observe_panel_change_profile">Profile</string>
+    <string name="observe_profile_sheet_title">Choose a test profile</string>
+    <string name="observe_profile_sheet_desc">The WebView will be recreated and the current address reloaded. Lists right before and after a profile change are not compared.</string>
+    <string name="observe_profile_sheet_empty">No test profiles yet.</string>
 </resources>

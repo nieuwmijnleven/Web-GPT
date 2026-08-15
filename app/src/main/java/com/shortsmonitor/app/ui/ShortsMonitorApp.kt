@@ -43,6 +43,7 @@ import com.shortsmonitor.feature.events.EventsScreen
 import com.shortsmonitor.feature.observation.ObservationScreen
 import com.shortsmonitor.feature.observation.ObservingScreen
 import com.shortsmonitor.feature.onboarding.OnboardingScreen
+import com.shortsmonitor.feature.profiles.ProfileDetailScreen
 import com.shortsmonitor.feature.profiles.ProfilesScreen
 import com.shortsmonitor.feature.sessions.SessionDetailScreen
 import com.shortsmonitor.feature.sessions.SessionsScreen
@@ -57,6 +58,9 @@ private const val SESSION_DETAIL_ROUTE = "sessions/{sessionId}"
 
 /** 의심 이벤트 상세 라우트. 이벤트 식별자를 인자로 받는다. 상단 바는 화면 자체에서 표시한다. */
 private const val EVENT_DETAIL_ROUTE = "events/{eventId}"
+
+/** 프로필 상세 라우트. 프로필 식별자를 인자로 받는다. 상단 바는 화면 자체에서 표시한다. */
+private const val PROFILE_DETAIL_ROUTE = "profiles/{profileId}"
 
 /**
  * 하단 내비게이션 5개 기본 경로.
@@ -235,7 +239,23 @@ private fun ShortsMonitorMainApp() {
                     onBack = { navController.popBackStack() },
                 )
             }
-            composable(ShortsMonitorDestination.Profiles.route) { ProfilesScreen() }
+            composable(ShortsMonitorDestination.Profiles.route) {
+                ProfilesScreen(
+                    onOpenProfile = { profileId ->
+                        navController.navigate("profiles/$profileId") { launchSingleTop = true }
+                    },
+                )
+            }
+            composable(
+                route = PROFILE_DETAIL_ROUTE,
+                arguments = listOf(navArgument("profileId") { type = NavType.LongType }),
+            ) { entry ->
+                val profileId = entry.arguments?.getLong("profileId") ?: return@composable
+                ProfileDetailScreen(
+                    profileId = profileId,
+                    onBack = { navController.popBackStack() },
+                )
+            }
             composable(ShortsMonitorDestination.Settings.route) { SettingsScreen() }
         }
     }

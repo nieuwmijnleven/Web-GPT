@@ -35,6 +35,9 @@ class ObservationRecorder(
     /** 스냅샷에 반영할 마지막 활성 영상. 페이지 정보·활성 변경 메시지로 갱신된다. */
     private var lastActiveVideoId: String? = null
 
+    /** 마지막 목록 스냅샷의 영상 식별값 순서. 프로필 변경 기록(L단계)에 사용한다. */
+    private var lastVideoIds: List<String> = emptyList()
+
     /** 관찰기 메시지를 세션 기록으로 저장한다. */
     suspend fun record(sessionId: Long, message: ObserverMessage) {
         when (message) {
@@ -89,6 +92,7 @@ class ObservationRecorder(
 
         val videoIdsJson = JSONArray()
         resolved.forEach { (_, identity) -> videoIdsJson.put(identity.videoId) }
+        lastVideoIds = resolved.map { it.second.videoId }
         val snapshotId = listSnapshotDao.insert(
             ListSnapshotEntity(
                 sessionId = sessionId,
@@ -138,6 +142,33 @@ class ObservationRecorder(
         if (detected.isNotEmpty()) {
             ShortsLog.d("Recorded insertions: session=$sessionId count=${detected.size}")
         }
+    }
+
+    /**
+     * 브라우저 테스트 프로필 변경(L단계)을 기록한다.
+     * 현재 목록을 스냅샷으로 저장하고 PROFILE_CHANGED 사유로 탐지 엔진의
+     * 기준 목록을 교체해, 프로필 변경 직전과 직후 목록을 서로 비교하지 않는다.
+     */
+    suspend fun recordProfileChange(sessionId: Long, ts: Long) {
+        val json = JSONArray()
+        lastVideoIds.forEach { json.put(it) }
+        val snapshotId = listSnapshotDao.insert(
+            ListSnapshotEntity(
+                sessionId = sessionId,
+                createdAt = ts,
+                videoIdsJson = json.toString(),
+                changeReason = SnapshotChangeReason.PROFILE_CHANGED,
+            ),
+        )
+        // PROFILE_CHANGED는 기준 교체 사유이므로 비교 없이 기준 목록만 바뀐다.
+        insertionDetector.process(
+            sessionId = sessionId,
+            videoIds = lastVideoIds,
+            reason = SnapshotChangeReason.PROFILE_CHANGED,
+            snapshotId = snapshotId,
+            ts = ts,
+        )
+        ShortsLog.d("Recorded profile change: session=$sessionId")
     }
 
     private suspend fun recordExposure(sessionId: Long, message: ObserverMessage.ActiveShortChanged) {

@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -30,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -44,6 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.shortsmonitor.app.R
 import com.shortsmonitor.app.ShortsMonitorApplication
+import com.shortsmonitor.core.database.entity.BrowserProfileEntity
 import com.shortsmonitor.core.database.entity.InsertionEventEntity
 import com.shortsmonitor.core.database.entity.ObservedShortEntity
 import com.shortsmonitor.core.design.StatusActive
@@ -75,6 +79,7 @@ private data class ObservingUiState(
     val shortsCount: Int = 0,
     val eventCount: Int = 0,
     val profileName: String? = null,
+    val profiles: List<BrowserProfileEntity> = emptyList(),
     val activeVideo: ObservedShortEntity? = null,
     val activeOrder: Int? = null,
     val lastChangedAt: Long? = null,
@@ -123,6 +128,7 @@ fun ObservingScreen(
     // 닫은 알림의 이벤트 식별자. 닫아도 기록은 데이터베이스에 남는다.
     var dismissedEventId by rememberSaveable { mutableStateOf<Long?>(null) }
     var showResetSheet by remember { mutableStateOf(false) }
+    var showProfileSheet by remember { mutableStateOf(false) }
 
     val observerBridge = remember {
         ObserverBridge { message ->
@@ -133,6 +139,9 @@ fun ObservingScreen(
         }
     }
     controller.observerBridge = observerBridge
+
+    // 프로필 변경 시 WebView를 새로 생성하기 위한 재생성 키. 키가 바뀌면 WebView가 다시 만들어진다.
+    var webViewRecreateKey by remember { mutableIntStateOf(0) }
 
     val uiState by produceState<ObservingUiState>(
         initialValue = ObservingUiState(),
@@ -154,6 +163,7 @@ fun ObservingScreen(
                     shortsCount = shorts.size,
                     eventCount = events.size,
                     profileName = profiles.maxByOrNull { it.lastUsedAt ?: 0L }?.name,
+                    profiles = profiles,
                     activeVideo = activeExposure?.let { shortsById[it.videoId] },
                     activeOrder = activeExposure?.exposureOrder,
                     lastChangedAt = snapshots.lastOrNull()?.createdAt,
@@ -164,6 +174,20 @@ fun ObservingScreen(
         } catch (e: Exception) {
             ShortsLog.e("Observing: failed to load session state", e)
         }
+    }
+
+    // WebView 생성 시 적용할 활성 프로필을 컨트롤러에 전달한다.
+    controller.activeProfile = uiState.profiles.maxByOrNull { it.lastUsedAt ?: 0L }
+
+    val applyProfile: (BrowserProfileEntity) -> Unit = { profile ->
+        scope.launch {
+            database.browserProfileDao().updateLastUsed(profile.id, System.currentTimeMillis())
+            // 현재 목록을 저장하고 탐지 기준을 교체한다 (직전/직후 목록은 비교하지 않음).
+            recorder.recordProfileChange(sessionId, System.currentTimeMillis())
+        }
+        controller.activeProfile = profile
+        // WebView 로딩 중지 → 기존 WebView 제거 → 새 WebView 생성 → 기존 주소 재로드.
+        webViewRecreateKey++
     }
 
     // 관찰기 하트비트 감시: 일정 시간 하트비트가 없으면 중단으로 보고 재시작한다.
@@ -202,6 +226,7 @@ fun ObservingScreen(
             controller = controller,
             startUrl = YOUTUBE_SHORTS_URL,
             modifier = Modifier.fillMaxSize(),
+            recreateKey = webViewRecreateKey,
             onExternalNavigation = { url ->
                 runCatching {
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
@@ -254,9 +279,18 @@ fun ObservingScreen(
             onOpenLog = onOpenLog,
             onPauseToggle = { paused = !paused },
             onReset = { showResetSheet = true },
+            onChangeProfile = { showProfileSheet = true },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth(),
+        )
+    }
+
+    if (showProfileSheet) {
+        ProfilePickerSheet(
+            profiles = uiState.profiles,
+            onSelect = applyProfile,
+            onDismiss = { showProfileSheet = false },
         )
     }
 
@@ -449,6 +483,7 @@ private fun ActiveSessionPanel(
     onOpenLog: () -> Unit,
     onPauseToggle: () -> Unit,
     onReset: () -> Unit,
+    onChangeProfile: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -545,10 +580,93 @@ private fun ActiveSessionPanel(
                         modifier = Modifier.weight(1f),
                     )
                     OutlinedActionButton(
+                        text = stringResource(R.string.observe_panel_change_profile),
+                        onClick = onChangeProfile,
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedActionButton(
                         text = stringResource(R.string.observe_panel_reset),
                         onClick = onReset,
                         modifier = Modifier.weight(1f),
                     )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 관찰 중 프로필 변경 선택 시트 (L단계).
+ * 프로필을 선택하면 WebView가 새로 생성되고 현재 주소를 다시 로드한다.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun ProfilePickerSheet(
+    profiles: List<BrowserProfileEntity>,
+    onSelect: (BrowserProfileEntity) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        modifier = modifier,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.observe_profile_sheet_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = stringResource(R.string.observe_profile_sheet_desc),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(14.dp))
+            if (profiles.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.observe_profile_sheet_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 320.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(profiles, key = { it.id }) { profile ->
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelect(profile) },
+                            shape = MaterialTheme.shapes.small,
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = profile.name,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = profile.screenOverride ?: profile.language,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

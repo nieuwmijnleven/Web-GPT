@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -30,12 +31,16 @@ import com.shortsmonitor.core.design.components.OutlinedActionButton
  * WebView 인스턴스는 Compose 재구성마다 다시 만들지 않으며,
  * 컨트롤러([ShortsWebViewController])가 생명주기를 관리한다.
  * 회전 시 WebView 상태는 rememberSaveable에 보존되어 복원된다.
+ *
+ * [recreateKey]가 바뀌면 브라우저 테스트 프로필 변경 등으로 WebView를
+ * 다시 생성해야 할 때 사용한다. 저장 상태는 복원하지 않고 새로 로드한다.
  */
 @Composable
 fun ShortsWebView(
     controller: ShortsWebViewController,
     startUrl: String,
     modifier: Modifier = Modifier,
+    recreateKey: Int = 0,
     onExternalNavigation: ((String) -> Unit)? = null,
 ) {
     val savedState = rememberSaveable { mutableStateOf<Bundle?>(null) }
@@ -52,12 +57,18 @@ fun ShortsWebView(
     }
 
     Box(modifier = modifier) {
-        AndroidView(
-            factory = { context ->
-                controller.createWebView(startUrl, savedState.value)
-            },
-            modifier = Modifier.fillMaxSize(),
-        )
+        key(recreateKey) {
+            AndroidView(
+                factory = { context ->
+                    // 프로필 변경 등 재생성 시 저장 상태를 복원하지 않는다 (새 기준 목록 수집).
+                    controller.createWebView(
+                        startUrl,
+                        if (recreateKey == 0) savedState.value else null,
+                    )
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
         if (controller.rendererGone) {
             RendererGoneOverlay(
                 onRecover = { controller.recoverFromRendererGone() },
