@@ -284,7 +284,8 @@ object ShortsObserverScript {
             if (!snapshot) { return; }
             var keys = keysOf(snapshot.shorts);
             // 같은 영상의 재렌더링: 안정 키가 같으면 중복 스냅샷을 보내지 않는다.
-            if (sameKeys(keys, lastKeys)) {
+            // lastKeys는 최초/컨테이너 재생성/주소 변경 직후 null이므로 빈 배열로 보정한다.
+            if (sameKeys(keys, lastKeys || [])) {
               checkActiveChange(snapshot);
               return;
             }

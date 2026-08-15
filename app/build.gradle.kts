@@ -99,6 +99,7 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.room.testing)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.rhino)
 
     debugImplementation(libs.compose.ui.tooling)
 }
