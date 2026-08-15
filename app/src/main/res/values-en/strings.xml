@@ -110,4 +110,48 @@ Detection results are observed list-change clues and do not confirm the platform
     <string name="settings_save_snapshots">Save list snapshots</string>
     <string name="settings_save_snapshots_desc">Store snapshot of the observed shorts list during observation.</string>
     <string name="settings_more_coming">Observation settings, notifications, data management and WebView diagnostics will be added in later stages.</string>
+
+    <!-- 세션 기록 (J단계) -->
+    <string name="sessions_search_hint">Search sessions, videos, channels, profiles</string>
+    <string name="sessions_search_clear">Clear search</string>
+    <string name="sessions_filter_all">All</string>
+    <string name="sessions_filter_events">With events</string>
+    <string name="sessions_filter_normal">Normal</string>
+    <string name="sessions_filter_error">Error</string>
+    <string name="sessions_filter_reset">With reset</string>
+    <string name="sessions_empty">No sessions recorded yet.</string>
+    <string name="sessions_no_match">No sessions match the current filters.</string>
+    <string name="sessions_error_message">Could not load session history.</string>
+    <string name="session_metric_duration">Duration</string>
+    <string name="session_metric_export">Export</string>
+    <string name="session_export_pending">Pending</string>
+
+    <!-- 세션 상세 (J단계) -->
+    <string name="session_detail_error_message">Could not load session details.</string>
+    <string name="session_summary_shorts">Shorts</string>
+    <string name="session_summary_exposures">Exposures</string>
+    <string name="session_summary_events">Events</string>
+    <string name="session_summary_started">Started at</string>
+    <string name="session_summary_ended">Ended at</string>
+    <string name="session_summary_duration">Duration</string>
+    <string name="session_detail_exposures">Actual exposure order</string>
+    <string name="session_detail_no_exposures">No exposure records.</string>
+    <string name="session_detail_snapshot">Current list snapshot</string>
+    <string name="session_detail_no_snapshot">No saved list snapshots.</string>
+    <string name="session_detail_no_snapshot_items">The snapshot has no items.</string>
+    <string name="session_detail_events">Suspected events</string>
+    <string name="session_detail_no_events">No suspected events.</string>
+    <string name="session_detail_profile_history">Profile change history</string>
+    <string name="session_detail_no_profile_changes">No profile changes.</string>
+    <string name="session_detail_profile_changed">Profile changed</string>
+    <string name="session_detail_reset_history">Session reset history</string>
+    <string name="session_detail_no_resets">No reset history.</string>
+    <string name="session_detail_reset_performed">Session reset</string>
+    <string name="session_detail_errors">Analysis errors</string>
+    <string name="session_detail_no_errors">No recorded analysis errors.</string>
+    <string name="session_detail_export">Export</string>
+    <string name="session_delete">Delete session</string>
+    <string name="session_delete_title">Delete session</string>
+    <string name="session_delete_message">This session and its child records (shorts, exposures, snapshots, suspected events) will be deleted.</string>
+    <string name="session_delete_confirm">Delete</string>
 </resources>

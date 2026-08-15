@@ -43,12 +43,16 @@ import com.shortsmonitor.feature.observation.ObservationScreen
 import com.shortsmonitor.feature.observation.ObservingScreen
 import com.shortsmonitor.feature.onboarding.OnboardingScreen
 import com.shortsmonitor.feature.profiles.ProfilesScreen
+import com.shortsmonitor.feature.sessions.SessionDetailScreen
 import com.shortsmonitor.feature.sessions.SessionsScreen
 import com.shortsmonitor.feature.settings.SettingsScreen
 import kotlinx.coroutines.launch
 
 /** 쇼츠 관찰 중 화면 라우트. 세션 식별자를 인자로 받는다. 관찰 중에는 하단 내비게이션을 숨긴다. */
 private const val OBSERVE_ROUTE = "observe/{sessionId}"
+
+/** 세션 상세 라우트. 세션 식별자를 인자로 받는다. 상단 바는 화면 자체에서 표시한다. */
+private const val SESSION_DETAIL_ROUTE = "sessions/{sessionId}"
 
 /**
  * 하단 내비게이션 5개 기본 경로.
@@ -118,7 +122,9 @@ private fun ShortsMonitorMainApp() {
     val currentRoute = navBackStackEntry?.destination?.route
     Scaffold(
         topBar = {
-            ShortsMonitorTopBar(title = stringResource(R.string.app_name))
+            if (currentRoute != SESSION_DETAIL_ROUTE) {
+                ShortsMonitorTopBar(title = stringResource(R.string.app_name))
+            }
         },
         bottomBar = {
             if (currentRoute != OBSERVE_ROUTE) {
@@ -194,7 +200,23 @@ private fun ShortsMonitorMainApp() {
                     },
                 )
             }
-            composable(ShortsMonitorDestination.Sessions.route) { SessionsScreen() }
+            composable(ShortsMonitorDestination.Sessions.route) {
+                SessionsScreen(
+                    onOpenSession = { sessionId ->
+                        navController.navigate("sessions/$sessionId") { launchSingleTop = true }
+                    },
+                )
+            }
+            composable(
+                route = SESSION_DETAIL_ROUTE,
+                arguments = listOf(navArgument("sessionId") { type = NavType.LongType }),
+            ) { entry ->
+                val sessionId = entry.arguments?.getLong("sessionId") ?: return@composable
+                SessionDetailScreen(
+                    sessionId = sessionId,
+                    onBack = { navController.popBackStack() },
+                )
+            }
             composable(ShortsMonitorDestination.Events.route) { EventsScreen() }
             composable(ShortsMonitorDestination.Profiles.route) { ProfilesScreen() }
             composable(ShortsMonitorDestination.Settings.route) { SettingsScreen() }

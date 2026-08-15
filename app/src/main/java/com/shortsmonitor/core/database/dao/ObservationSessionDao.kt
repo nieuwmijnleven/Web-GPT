@@ -18,6 +18,9 @@ interface ObservationSessionDao {
     @Query("SELECT * FROM observation_session WHERE id = :id")
     suspend fun getById(id: Long): ObservationSessionEntity?
 
+    @Query("SELECT * FROM observation_session WHERE id = :id")
+    fun observeById(id: Long): Flow<ObservationSessionEntity?>
+
     @Query("SELECT * FROM observation_session ORDER BY started_at DESC")
     fun observeAll(): Flow<List<ObservationSessionEntity>>
 
@@ -37,4 +40,8 @@ interface ObservationSessionDao {
         endedAt: Long?,
         endReason: SessionEndReason?,
     )
+
+    /** 세션 삭제. 하위 기록(쇼츠·노출·스냅샷·의심 이벤트)은 FK CASCADE로 함께 삭제된다. */
+    @Query("DELETE FROM observation_session WHERE id = :id")
+    suspend fun deleteById(id: Long)
 }

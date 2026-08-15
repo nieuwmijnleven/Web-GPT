@@ -115,4 +115,48 @@
     <string name="settings_save_snapshots">목록 스냅샷 저장</string>
     <string name="settings_save_snapshots_desc">관찰 중 쇼츠 목록 스냅샷을 기록에 저장합니다.</string>
     <string name="settings_more_coming">관찰 설정·알림·데이터 관리·WebView 진단은 이후 단계에서 추가됩니다.</string>
+
+    <!-- 세션 기록 (J단계) -->
+    <string name="sessions_search_hint">세션·영상·채널·프로필 검색</string>
+    <string name="sessions_search_clear">검색어 지우기</string>
+    <string name="sessions_filter_all">전체</string>
+    <string name="sessions_filter_events">의심 이벤트 있음</string>
+    <string name="sessions_filter_normal">정상</string>
+    <string name="sessions_filter_error">오류</string>
+    <string name="sessions_filter_reset">초기화 포함</string>
+    <string name="sessions_empty">아직 기록된 세션이 없습니다.</string>
+    <string name="sessions_no_match">조건에 맞는 세션이 없습니다.</string>
+    <string name="sessions_error_message">세션 기록을 불러오지 못했습니다.</string>
+    <string name="session_metric_duration">관찰 시간</string>
+    <string name="session_metric_export">내보내기</string>
+    <string name="session_export_pending">대기</string>
+
+    <!-- 세션 상세 (J단계) -->
+    <string name="session_detail_error_message">세션 상세를 불러오지 못했습니다.</string>
+    <string name="session_summary_shorts">쇼츠</string>
+    <string name="session_summary_exposures">노출</string>
+    <string name="session_summary_events">이벤트</string>
+    <string name="session_summary_started">시작 시각</string>
+    <string name="session_summary_ended">종료 시각</string>
+    <string name="session_summary_duration">관찰 시간</string>
+    <string name="session_detail_exposures">실제 노출 순서</string>
+    <string name="session_detail_no_exposures">노출 기록이 없습니다.</string>
+    <string name="session_detail_snapshot">현재 목록 스냅샷</string>
+    <string name="session_detail_no_snapshot">저장된 목록 스냅샷이 없습니다.</string>
+    <string name="session_detail_no_snapshot_items">스냅샷에 항목이 없습니다.</string>
+    <string name="session_detail_events">의심 이벤트</string>
+    <string name="session_detail_no_events">의심 이벤트가 없습니다.</string>
+    <string name="session_detail_profile_history">프로필 변경 이력</string>
+    <string name="session_detail_no_profile_changes">프로필 변경 이력이 없습니다.</string>
+    <string name="session_detail_profile_changed">프로필 변경</string>
+    <string name="session_detail_reset_history">세션 초기화 이력</string>
+    <string name="session_detail_no_resets">초기화 이력이 없습니다.</string>
+    <string name="session_detail_reset_performed">세션 초기화</string>
+    <string name="session_detail_errors">분석 오류</string>
+    <string name="session_detail_no_errors">기록된 분석 오류가 없습니다.</string>
+    <string name="session_detail_export">내보내기</string>
+    <string name="session_delete">세션 삭제</string>
+    <string name="session_delete_title">세션 삭제</string>
+    <string name="session_delete_message">이 세션과 하위 기록(쇼츠·노출·스냅샷·의심 이벤트)이 함께 삭제됩니다.</string>
+    <string name="session_delete_confirm">삭제</string>
 </resources>
