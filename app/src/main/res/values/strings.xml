@@ -159,4 +159,45 @@
     <string name="session_delete_title">세션 삭제</string>
     <string name="session_delete_message">이 세션과 하위 기록(쇼츠·노출·스냅샷·의심 이벤트)이 함께 삭제됩니다.</string>
     <string name="session_delete_confirm">삭제</string>
+
+    <!-- 의심 이벤트 (K단계) -->
+    <string name="events_empty_title">아직 의심 이벤트가 없습니다.</string>
+    <string name="events_error_message">의심 이벤트를 불러오지 못했습니다.</string>
+    <string name="auto_verdict_candidate">후보</string>
+    <string name="auto_verdict_confirmed">확인됨</string>
+    <string name="auto_verdict_invalidated">무효화됨</string>
+    <string name="verdict_pending">판단 보류</string>
+    <string name="verdict_suspected">의심 유지</string>
+    <string name="verdict_normal_change">정상 변화</string>
+    <string name="verdict_false_positive">오탐</string>
+
+    <!-- 의심 이벤트 상세 (K단계) -->
+    <string name="event_detail_title">의심 이벤트</string>
+    <string name="event_detail_error_message">의심 이벤트를 불러오지 못했습니다.</string>
+    <string name="event_detail_video_info">대상 영상</string>
+    <string name="event_detail_title_label">영상 제목</string>
+    <string name="event_detail_channel_label">채널명</string>
+    <string name="event_detail_url_label">영상 주소</string>
+    <string name="event_detail_detected_at">발견 시각</string>
+    <string name="event_detail_position">발견 위치</string>
+    <string name="event_detail_profile">사용 프로필</string>
+    <string name="event_detail_list_comparison">목록 비교</string>
+    <string name="event_detail_before_list">이전 목록</string>
+    <string name="event_detail_after_list">현재 목록</string>
+    <string name="event_detail_evidence">판정 근거</string>
+    <string name="evidence_not_in_previous_list">이전 목록에 없음</string>
+    <string name="evidence_appeared_at_middle">중간 위치에 출현</string>
+    <string name="evidence_front_back_maintained">앞뒤 기존 항목 유지</string>
+    <string name="evidence_stabilized">안정화 확인 완료</string>
+    <string name="evidence_not_full_reload">페이지 재로드 아님</string>
+    <string name="evidence_not_after_profile_change">프로필 변경 직후 아님</string>
+    <string name="evidence_not_after_session_reset">초기화 직후 아님</string>
+    <string name="evidence_not_after_dom_rebuild">DOM 전체 재구성 직후 아님</string>
+    <string name="event_detail_auto_verdict">자동 판정</string>
+    <string name="event_detail_auto_verdict_desc">탐지 엔진이 자동으로 내린 원본 판정입니다.</string>
+    <string name="event_detail_user_verdict">사용자 판정</string>
+    <string name="event_detail_memo_label">사용자 메모</string>
+    <string name="event_detail_memo_hint">판정 근거나 의견을 입력하세요.</string>
+    <string name="event_detail_memo_saved">자동 저장됨</string>
+    <string name="event_detail_memo_saving">저장 중…</string>
 </resources>

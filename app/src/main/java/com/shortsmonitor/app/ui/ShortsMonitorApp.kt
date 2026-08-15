@@ -38,6 +38,7 @@ import com.shortsmonitor.core.design.components.LoadingState
 import com.shortsmonitor.core.design.components.ShortsMonitorBottomBar
 import com.shortsmonitor.core.design.components.ShortsMonitorBottomBarItem
 import com.shortsmonitor.core.design.components.ShortsMonitorTopBar
+import com.shortsmonitor.feature.events.EventDetailScreen
 import com.shortsmonitor.feature.events.EventsScreen
 import com.shortsmonitor.feature.observation.ObservationScreen
 import com.shortsmonitor.feature.observation.ObservingScreen
@@ -53,6 +54,9 @@ private const val OBSERVE_ROUTE = "observe/{sessionId}"
 
 /** 세션 상세 라우트. 세션 식별자를 인자로 받는다. 상단 바는 화면 자체에서 표시한다. */
 private const val SESSION_DETAIL_ROUTE = "sessions/{sessionId}"
+
+/** 의심 이벤트 상세 라우트. 이벤트 식별자를 인자로 받는다. 상단 바는 화면 자체에서 표시한다. */
+private const val EVENT_DETAIL_ROUTE = "events/{eventId}"
 
 /**
  * 하단 내비게이션 5개 기본 경로.
@@ -187,11 +191,8 @@ private fun ShortsMonitorMainApp() {
                 ObservingScreen(
                     sessionId = sessionId,
                     onBack = { navController.popBackStack() },
-                    onOpenEvent = {
-                        // 의심 이벤트 상세는 K단계에서 구현한다. 지금은 이벤트 목록으로 이동한다.
-                        navController.navigate(ShortsMonitorDestination.Events.route) {
-                            launchSingleTop = true
-                        }
+                    onOpenEvent = { eventId ->
+                        navController.navigate("events/$eventId") { launchSingleTop = true }
                     },
                     onOpenLog = {
                         navController.navigate(ShortsMonitorDestination.Sessions.route) {
@@ -217,7 +218,23 @@ private fun ShortsMonitorMainApp() {
                     onBack = { navController.popBackStack() },
                 )
             }
-            composable(ShortsMonitorDestination.Events.route) { EventsScreen() }
+            composable(ShortsMonitorDestination.Events.route) {
+                EventsScreen(
+                    onOpenEvent = { eventId ->
+                        navController.navigate("events/$eventId") { launchSingleTop = true }
+                    },
+                )
+            }
+            composable(
+                route = EVENT_DETAIL_ROUTE,
+                arguments = listOf(navArgument("eventId") { type = NavType.LongType }),
+            ) { entry ->
+                val eventId = entry.arguments?.getLong("eventId") ?: return@composable
+                EventDetailScreen(
+                    eventId = eventId,
+                    onBack = { navController.popBackStack() },
+                )
+            }
             composable(ShortsMonitorDestination.Profiles.route) { ProfilesScreen() }
             composable(ShortsMonitorDestination.Settings.route) { SettingsScreen() }
         }

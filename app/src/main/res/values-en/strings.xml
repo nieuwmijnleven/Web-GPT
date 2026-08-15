@@ -154,4 +154,45 @@ Detection results are observed list-change clues and do not confirm the platform
     <string name="session_delete_title">Delete session</string>
     <string name="session_delete_message">This session and its child records (shorts, exposures, snapshots, suspected events) will be deleted.</string>
     <string name="session_delete_confirm">Delete</string>
+
+    <!-- 의심 이벤트 (K단계) -->
+    <string name="events_empty_title">No suspected events yet.</string>
+    <string name="events_error_message">Could not load suspected events.</string>
+    <string name="auto_verdict_candidate">Candidate</string>
+    <string name="auto_verdict_confirmed">Confirmed</string>
+    <string name="auto_verdict_invalidated">Invalidated</string>
+    <string name="verdict_pending">Pending</string>
+    <string name="verdict_suspected">Keep suspected</string>
+    <string name="verdict_normal_change">Normal change</string>
+    <string name="verdict_false_positive">False positive</string>
+
+    <!-- 의심 이벤트 상세 (K단계) -->
+    <string name="event_detail_title">Suspected event</string>
+    <string name="event_detail_error_message">Could not load the suspected event.</string>
+    <string name="event_detail_video_info">Target video</string>
+    <string name="event_detail_title_label">Video title</string>
+    <string name="event_detail_channel_label">Channel</string>
+    <string name="event_detail_url_label">Video URL</string>
+    <string name="event_detail_detected_at">Detected at</string>
+    <string name="event_detail_position">Position</string>
+    <string name="event_detail_profile">Profile</string>
+    <string name="event_detail_list_comparison">List comparison</string>
+    <string name="event_detail_before_list">Before</string>
+    <string name="event_detail_after_list">After</string>
+    <string name="event_detail_evidence">Detection evidence</string>
+    <string name="evidence_not_in_previous_list">Not in previous list</string>
+    <string name="evidence_appeared_at_middle">Appeared in the middle</string>
+    <string name="evidence_front_back_maintained">Front and back items kept</string>
+    <string name="evidence_stabilized">Stabilization confirmed</string>
+    <string name="evidence_not_full_reload">Not a page reload</string>
+    <string name="evidence_not_after_profile_change">Not right after a profile change</string>
+    <string name="evidence_not_after_session_reset">Not right after a reset</string>
+    <string name="evidence_not_after_dom_rebuild">Not right after a DOM rebuild</string>
+    <string name="event_detail_auto_verdict">Automatic verdict</string>
+    <string name="event_detail_auto_verdict_desc">Original verdict from the detection engine.</string>
+    <string name="event_detail_user_verdict">Your verdict</string>
+    <string name="event_detail_memo_label">Memo</string>
+    <string name="event_detail_memo_hint">Add evidence or notes.</string>
+    <string name="event_detail_memo_saved">Auto-saved</string>
+    <string name="event_detail_memo_saving">Saving…</string>
 </resources>
