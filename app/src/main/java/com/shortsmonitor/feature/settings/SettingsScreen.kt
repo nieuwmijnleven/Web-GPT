@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.shortsmonitor.app.R
 import com.shortsmonitor.app.ShortsMonitorApplication
+import com.shortsmonitor.core.design.components.OutlinedActionButton
 import kotlinx.coroutines.launch
 
 /**
@@ -72,6 +73,12 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 onCheckedChange = { scope.launch { repository.setSaveListSnapshots(it) } },
             )
         }
+
+        Spacer(Modifier.height(24.dp))
+        OutlinedActionButton(
+            text = stringResource(R.string.settings_view_onboarding),
+            onClick = { scope.launch { repository.setOnboardingCompleted(false) } },
+        )
 
         Spacer(Modifier.height(16.dp))
         Text(

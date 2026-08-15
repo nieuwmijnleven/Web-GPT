@@ -19,6 +19,34 @@
     <string name="placeholder_events">No suspected events yet.</string>
     <string name="placeholder_profiles">No test profiles yet.</string>
 
+    <!-- 온보딩 -->
+    <string name="onboarding_subtitle">Observe and record YouTube Shorts inside the app WebView.</string>
+    <string name="onboarding_feature_webview">Run YouTube mobile web inside the app</string>
+    <string name="onboarding_feature_recording">Record the shorts list and exposure order</string>
+    <string name="onboarding_feature_detection">Detect new items between existing list items</string>
+    <string name="onboarding_feature_profile">Change browser test profiles</string>
+    <string name="onboarding_feature_reset">Reset cookies and site data</string>
+    <string name="onboarding_feature_local">Keep records stored locally</string>
+    <string name="onboarding_disclaimer">Detection results are observed list-change clues and do not confirm the platform\'s intent or cause.</string>
+    <string name="onboarding_start">Get started</string>
+    <string name="onboarding_privacy">View privacy and collected items</string>
+
+    <!-- 개인정보 안내 -->
+    <string name="privacy_title">Privacy and collected items</string>
+    <string name="privacy_body">shorts monitor stores the following items only on this device:
+
+• Observation sessions
+• Shorts list and actual exposure order
+• Suspected mid-insertion events
+• Browser test profiles
+• User verdicts and memos
+
+No records are sent to external servers. Resetting cookies or site data keeps observation records. Exports never include raw cookies, auth tokens, login credentials, full HTML, cache, or video files.
+
+Detection results are observed list-change clues and do not confirm the platform\'s intent or cause.</string>
+    <string name="action_confirm">OK</string>
+    <string name="settings_view_onboarding">Show onboarding again</string>
+
     <!-- 공통 컴포넌트 -->
     <string name="action_back">Back</string>
     <string name="action_retry">Retry</string>

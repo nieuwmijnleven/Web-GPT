@@ -23,6 +23,34 @@
     <string name="placeholder_events">아직 의심 이벤트가 없습니다.</string>
     <string name="placeholder_profiles">아직 테스트 프로필이 없습니다.</string>
 
+    <!-- 온보딩 -->
+    <string name="onboarding_subtitle">앱 내부 WebView에서 유튜브 쇼츠를 관찰하고 기록합니다.</string>
+    <string name="onboarding_feature_webview">앱 내부에서 유튜브 모바일 웹 실행</string>
+    <string name="onboarding_feature_recording">쇼츠 목록과 노출 순서 기록</string>
+    <string name="onboarding_feature_detection">기존 목록 사이의 신규 항목 감지</string>
+    <string name="onboarding_feature_profile">브라우저 테스트 프로필 변경</string>
+    <string name="onboarding_feature_reset">쿠키 및 사이트 데이터 초기화</string>
+    <string name="onboarding_feature_local">기록의 로컬 저장</string>
+    <string name="onboarding_disclaimer">감지 결과는 관찰된 목록 변화 정황이며 플랫폼의 의도나 원인을 확정하지 않습니다.</string>
+    <string name="onboarding_start">시작하기</string>
+    <string name="onboarding_privacy">개인정보 및 수집 항목 보기</string>
+
+    <!-- 개인정보 안내 -->
+    <string name="privacy_title">개인정보 및 수집 항목</string>
+    <string name="privacy_body">shorts monitor는 다음 항목을 이 기기에만 로컬로 저장합니다.
+
+• 관찰 세션
+• 쇼츠 목록과 실제 노출 순서
+• 중간 삽입 의심 이벤트
+• 브라우저 테스트 프로필
+• 사용자 판정과 메모
+
+모든 기록은 외부 서버로 전송되지 않습니다. 쿠키·사이트 데이터 초기화 시에도 관찰 기록은 유지됩니다. 내보내기에 쿠키 원문, 인증 토큰, 로그인 자격증명, 전체 HTML·캐시, 영상 파일은 포함되지 않습니다.
+
+감지 결과는 관찰된 목록 변화 정황이며 플랫폼의 의도나 원인을 확정하지 않습니다.</string>
+    <string name="action_confirm">확인</string>
+    <string name="settings_view_onboarding">온보딩 다시 보기</string>
+
     <!-- 공통 컴포넌트 -->
     <string name="action_back">뒤로 가기</string>
     <string name="action_retry">다시 시도</string>
