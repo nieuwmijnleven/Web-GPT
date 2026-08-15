@@ -26,10 +26,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.shortsmonitor.app.R
 import com.shortsmonitor.app.ShortsMonitorApplication
 import com.shortsmonitor.core.design.components.LoadingState
@@ -45,8 +47,8 @@ import com.shortsmonitor.feature.sessions.SessionsScreen
 import com.shortsmonitor.feature.settings.SettingsScreen
 import kotlinx.coroutines.launch
 
-/** 쇼츠 관찰 중 화면 라우트. 관찰 중에는 하단 내비게이션을 숨긴다. */
-private const val OBSERVE_ROUTE = "observe"
+/** 쇼츠 관찰 중 화면 라우트. 세션 식별자를 인자로 받는다. 관찰 중에는 하단 내비게이션을 숨긴다. */
+private const val OBSERVE_ROUTE = "observe/{sessionId}"
 
 /**
  * 하단 내비게이션 5개 기본 경로.
@@ -163,16 +165,20 @@ private fun ShortsMonitorMainApp() {
                             launchSingleTop = true
                         }
                     },
-                    onStartObservation = {
-                        navController.navigate(OBSERVE_ROUTE) { launchSingleTop = true }
+                    onStartObservation = { sessionId ->
+                        navController.navigate("observe/$sessionId") { launchSingleTop = true }
                     },
-                    onResumeObservation = {
-                        navController.navigate(OBSERVE_ROUTE) { launchSingleTop = true }
+                    onResumeObservation = { sessionId ->
+                        navController.navigate("observe/$sessionId") { launchSingleTop = true }
                     },
                 )
             }
-            composable(OBSERVE_ROUTE) {
-                ObservingScreen(onBack = { navController.popBackStack() })
+            composable(
+                route = OBSERVE_ROUTE,
+                arguments = listOf(navArgument("sessionId") { type = NavType.LongType }),
+            ) { entry ->
+                val sessionId = entry.arguments?.getLong("sessionId") ?: return@composable
+                ObservingScreen(sessionId = sessionId, onBack = { navController.popBackStack() })
             }
             composable(ShortsMonitorDestination.Sessions.route) { SessionsScreen() }
             composable(ShortsMonitorDestination.Events.route) { EventsScreen() }

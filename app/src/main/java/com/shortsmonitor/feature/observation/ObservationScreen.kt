@@ -79,8 +79,8 @@ fun ObservationScreen(
     onNavigateToSessions: () -> Unit,
     onNavigateToEvents: () -> Unit,
     onNavigateToProfiles: () -> Unit,
-    onStartObservation: () -> Unit,
-    onResumeObservation: () -> Unit,
+    onStartObservation: (Long) -> Unit,
+    onResumeObservation: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -127,7 +127,7 @@ fun ObservationScreen(
         is ObservationHomeUiState.Content -> {
             val startObservation: () -> Unit = {
                 scope.launch {
-                    database.observationSessionDao().insert(
+                    val sessionId = database.observationSessionDao().insert(
                         ObservationSessionEntity(
                             sessionId = UUID.randomUUID().toString(),
                             name = context.getString(
@@ -139,7 +139,7 @@ fun ObservationScreen(
                             appVersion = BuildConfig.VERSION_NAME,
                         ),
                     )
-                    onStartObservation()
+                    onStartObservation(sessionId)
                 }
             }
             val endSession: (ObservationSessionEntity) -> Unit = { session ->
@@ -160,7 +160,7 @@ fun ObservationScreen(
                         endedAt = null,
                         endReason = null,
                     )
-                    onResumeObservation()
+                    onResumeObservation(session.id)
                 }
             }
             ObservationHomeContent(
@@ -216,7 +216,7 @@ private fun ObservationHomeContent(
     onSessionClick: () -> Unit,
     onNavigateToEvents: () -> Unit,
     onNavigateToProfiles: () -> Unit,
-    onResumeObservation: () -> Unit,
+    onResumeObservation: (Long) -> Unit,
     onResetClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -249,7 +249,7 @@ private fun ObservationHomeContent(
             item {
                 ActiveSessionCard(
                     session = session,
-                    onResume = onResumeObservation,
+                    onResume = { onResumeObservation(session.id) },
                     onEnd = { onEnd(session) },
                 )
             }

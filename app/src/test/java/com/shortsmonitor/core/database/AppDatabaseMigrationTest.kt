@@ -32,4 +32,10 @@ class AppDatabaseMigrationTest {
         helper.createDatabase(testDb, 1).apply { close() }
         helper.runMigrationsAndValidate(testDb, 1, true, *AppDatabase.ALL_MIGRATIONS)
     }
+
+    @Test
+    fun migrateV1ToV2_addsObservedShortColumns() {
+        helper.createDatabase(testDb, 1).apply { close() }
+        helper.runMigrationsAndValidate(testDb, 2, true, *AppDatabase.ALL_MIGRATIONS)
+    }
 }

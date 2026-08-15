@@ -47,4 +47,13 @@ data class ObservedShortEntity(
     val firstSeenAt: Long,
     @ColumnInfo(name = "last_seen_at")
     val lastSeenAt: Long,
+    /** 활성화(실제 노출) 시각. v2에서 추가. */
+    @ColumnInfo(name = "activated_at")
+    val activatedAt: Long? = null,
+    /** 마지막 관찰 시점의 이전 영상 식별값. v2에서 추가. */
+    @ColumnInfo(name = "prev_video_id")
+    val prevVideoId: String? = null,
+    /** 마지막 관찰 시점의 다음 영상 식별값. v2에서 추가. */
+    @ColumnInfo(name = "next_video_id")
+    val nextVideoId: String? = null,
 )

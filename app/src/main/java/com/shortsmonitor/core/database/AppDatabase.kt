@@ -29,7 +29,7 @@ import com.shortsmonitor.core.database.entity.ObservationSessionEntity
         InsertionEventEntity::class,
         BrowserProfileEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -49,7 +49,16 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         const val NAME = "shorts_monitor.db"
 
+        /** v1 → v2: observed_short에 활성화 시각·이전/다음 영상 컬럼 추가 (G단계 저장 정보). */
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE observed_short ADD COLUMN activated_at INTEGER")
+                db.execSQL("ALTER TABLE observed_short ADD COLUMN prev_video_id TEXT")
+                db.execSQL("ALTER TABLE observed_short ADD COLUMN next_video_id TEXT")
+            }
+        }
+
         /** 버전별 마이그레이션 목록. 버전 1은 초기 스키마이므로 비어 있다. */
-        val ALL_MIGRATIONS: Array<Migration> = emptyArray()
+        val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2)
     }
 }
