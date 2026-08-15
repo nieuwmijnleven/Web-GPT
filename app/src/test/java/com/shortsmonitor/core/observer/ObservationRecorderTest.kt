@@ -3,8 +3,11 @@ package com.shortsmonitor.core.observer
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.shortsmonitor.core.database.AppDatabase
+import com.shortsmonitor.core.model.AutoVerdict
+import com.shortsmonitor.core.model.InsertionEvidence
 import com.shortsmonitor.core.model.ShortIdentityStatus
 import com.shortsmonitor.core.model.SnapshotChangeReason
+import com.shortsmonitor.core.model.UserVerdict
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
@@ -34,6 +37,7 @@ class ObservationRecorderTest {
             observedShortDao = database.observedShortDao(),
             exposureEventDao = database.exposureEventDao(),
             listSnapshotDao = database.listSnapshotDao(),
+            insertionEventDao = database.insertionEventDao(),
         )
         sessionId = database.observationSessionDao().insert(
             com.shortsmonitor.core.database.entity.ObservationSessionEntity(
@@ -213,5 +217,52 @@ class ObservationRecorderTest {
         assertEquals(0, database.observedShortDao().countBySession(sessionId))
         assertEquals(0, database.listSnapshotDao().observeBySession(sessionId).first().size)
         assertEquals(0, database.exposureEventDao().countBySession(sessionId))
+    }
+
+    @Test
+    fun stabilized_middle_insertion_creates_insertion_event() = runBlocking {
+        // A→B 기준 목록 수립
+        recorder.record(sessionId, snapshot(ts = 100L, shorts = listOf(short("a"), short("b")), reason = SnapshotChangeReason.INITIAL, revision = 1))
+        // A→X→B: 후보 등록 (아직 확정되지 않음)
+        recorder.record(
+            sessionId,
+            snapshot(ts = 200L, shorts = listOf(short("a"), short("x"), short("b")), reason = SnapshotChangeReason.ITEM_ADDED, revision = 2),
+        )
+        var events = database.insertionEventDao().observeBySession(sessionId).first()
+        assertEquals("후보는 즉시 확정되지 않음", 0, events.size)
+
+        // 같은 목록 유지 → 안정화 확정
+        recorder.record(
+            sessionId,
+            snapshot(ts = 300L, shorts = listOf(short("a"), short("x"), short("b")), reason = SnapshotChangeReason.ITEM_ADDED, revision = 3),
+        )
+        events = database.insertionEventDao().observeBySession(sessionId).first()
+        assertEquals(1, events.size)
+        val event = events[0]
+        assertEquals("x", event.newVideoId)
+        assertEquals("a", event.prevVideoId)
+        assertEquals("b", event.nextVideoId)
+        assertEquals(AutoVerdict.CONFIRMED, event.autoVerdict)
+        assertEquals(UserVerdict.PENDING, event.userVerdict)
+        assertNotNull(event.evidenceJson)
+        val evidence = InsertionEvidence.fromJson(event.evidenceJson)
+        assertTrue(evidence.stabilized)
+        assertTrue(evidence.notInPreviousList)
+    }
+
+    @Test
+    fun end_of_list_addition_does_not_create_insertion_event() = runBlocking {
+        recorder.record(sessionId, snapshot(ts = 100L, shorts = listOf(short("a"), short("b")), reason = SnapshotChangeReason.INITIAL, revision = 1))
+        recorder.record(
+            sessionId,
+            snapshot(ts = 200L, shorts = listOf(short("a"), short("b"), short("x")), reason = SnapshotChangeReason.ITEM_ADDED, revision = 2),
+        )
+        recorder.record(
+            sessionId,
+            snapshot(ts = 300L, shorts = listOf(short("a"), short("b"), short("x")), reason = SnapshotChangeReason.ITEM_ADDED, revision = 3),
+        )
+
+        val events = database.insertionEventDao().observeBySession(sessionId).first()
+        assertEquals("목록 끝 추가는 의심 이벤트가 아님", 0, events.size)
     }
 }

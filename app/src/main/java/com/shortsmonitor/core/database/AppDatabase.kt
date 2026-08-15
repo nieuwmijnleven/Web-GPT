@@ -29,7 +29,7 @@ import com.shortsmonitor.core.database.entity.ObservationSessionEntity
         InsertionEventEntity::class,
         BrowserProfileEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -58,7 +58,14 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v2 → v3: insertion_event에 판정 근거 JSON 컬럼 추가 (H단계). */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE insertion_event ADD COLUMN evidence_json TEXT")
+            }
+        }
+
         /** 버전별 마이그레이션 목록. 버전 1은 초기 스키마이므로 비어 있다. */
-        val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2)
+        val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
     }
 }

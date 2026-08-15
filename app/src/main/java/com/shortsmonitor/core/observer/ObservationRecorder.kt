@@ -1,12 +1,17 @@
 package com.shortsmonitor.core.observer
 
 import com.shortsmonitor.core.database.dao.ExposureEventDao
+import com.shortsmonitor.core.database.dao.InsertionEventDao
 import com.shortsmonitor.core.database.dao.ListSnapshotDao
 import com.shortsmonitor.core.database.dao.ObservedShortDao
 import com.shortsmonitor.core.database.entity.ExposureEventEntity
+import com.shortsmonitor.core.database.entity.InsertionEventEntity
 import com.shortsmonitor.core.database.entity.ListSnapshotEntity
 import com.shortsmonitor.core.database.entity.ObservedShortEntity
 import com.shortsmonitor.core.logging.ShortsLog
+import com.shortsmonitor.core.model.AutoVerdict
+import com.shortsmonitor.core.model.SnapshotChangeReason
+import com.shortsmonitor.core.model.UserVerdict
 import org.json.JSONArray
 
 /**
@@ -23,6 +28,8 @@ class ObservationRecorder(
     private val observedShortDao: ObservedShortDao,
     private val exposureEventDao: ExposureEventDao,
     private val listSnapshotDao: ListSnapshotDao,
+    private val insertionEventDao: InsertionEventDao,
+    private val insertionDetector: InsertionDetector = InsertionDetector(),
 ) {
 
     /** 스냅샷에 반영할 마지막 활성 영상. 페이지 정보·활성 변경 메시지로 갱신된다. */
@@ -82,7 +89,7 @@ class ObservationRecorder(
 
         val videoIdsJson = JSONArray()
         resolved.forEach { (_, identity) -> videoIdsJson.put(identity.videoId) }
-        listSnapshotDao.insert(
+        val snapshotId = listSnapshotDao.insert(
             ListSnapshotEntity(
                 sessionId = sessionId,
                 createdAt = snapshot.ts,
@@ -93,7 +100,44 @@ class ObservationRecorder(
                 domRevision = snapshot.revision.toLong(),
             ),
         )
+        recordInsertions(sessionId, resolved.map { it.second.videoId }, snapshot.reason, snapshotId, snapshot.ts)
         ShortsLog.d("Recorded snapshot: session=$sessionId shorts=${resolved.size} reason=${snapshot.reason}")
+    }
+
+    /** 스냅샷을 중간 삽입 탐지 엔진에 전달하고 확정된 의심 이벤트를 저장한다. */
+    private suspend fun recordInsertions(
+        sessionId: Long,
+        videoIds: List<String>,
+        reason: SnapshotChangeReason,
+        snapshotId: Long,
+        ts: Long,
+    ) {
+        val detected = insertionDetector.process(
+            sessionId = sessionId,
+            videoIds = videoIds,
+            reason = reason,
+            snapshotId = snapshotId,
+            ts = ts,
+        )
+        detected.forEach { insertion ->
+            insertionEventDao.insert(
+                InsertionEventEntity(
+                    sessionId = insertion.sessionId,
+                    newVideoId = insertion.newVideoId,
+                    prevVideoId = insertion.prevVideoId,
+                    nextVideoId = insertion.nextVideoId,
+                    beforeSnapshotId = insertion.beforeSnapshotId,
+                    afterSnapshotId = insertion.afterSnapshotId,
+                    detectedAt = insertion.detectedAt,
+                    autoVerdict = AutoVerdict.CONFIRMED,
+                    userVerdict = UserVerdict.PENDING,
+                    evidenceJson = insertion.evidence.toJson(),
+                ),
+            )
+        }
+        if (detected.isNotEmpty()) {
+            ShortsLog.d("Recorded insertions: session=$sessionId count=${detected.size}")
+        }
     }
 
     private suspend fun recordExposure(sessionId: Long, message: ObserverMessage.ActiveShortChanged) {

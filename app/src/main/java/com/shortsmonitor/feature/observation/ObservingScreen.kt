@@ -45,6 +45,7 @@ fun ObservingScreen(
             observedShortDao = database.observedShortDao(),
             exposureEventDao = database.exposureEventDao(),
             listSnapshotDao = database.listSnapshotDao(),
+            insertionEventDao = database.insertionEventDao(),
         )
     }
     val observerBridge = remember {

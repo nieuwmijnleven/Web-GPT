@@ -38,4 +38,10 @@ class AppDatabaseMigrationTest {
         helper.createDatabase(testDb, 1).apply { close() }
         helper.runMigrationsAndValidate(testDb, 2, true, *AppDatabase.ALL_MIGRATIONS)
     }
+
+    @Test
+    fun migrateToV3_addsInsertionEventEvidenceColumn() {
+        helper.createDatabase(testDb, 2).apply { close() }
+        helper.runMigrationsAndValidate(testDb, 3, true, *AppDatabase.ALL_MIGRATIONS)
+    }
 }

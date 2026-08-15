@@ -48,4 +48,7 @@ data class InsertionEventEntity(
     val userVerdict: UserVerdict,
     @ColumnInfo(name = "user_memo")
     val userMemo: String? = null,
+    /** 판정 근거 JSON (H단계: 확정 조건·안정화 여부). v3에서 추가. */
+    @ColumnInfo(name = "evidence_json")
+    val evidenceJson: String? = null,
 )
