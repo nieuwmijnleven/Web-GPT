@@ -78,6 +78,11 @@ Detection results are observed list-change clues and do not confirm the platform
     <string name="reset_session_message">Cookies and site data will be deleted. shorts monitor observation records are kept.</string>
     <string name="reset_confirm">Reset</string>
 
+    <!-- WebView (E단계) -->
+    <string name="webview_crash_title">WebView stopped working</string>
+    <string name="webview_crash_message">Try reloading the page.</string>
+    <string name="webview_crash_recover">Reload</string>
+
     <!-- 공통 컴포넌트 -->
     <string name="action_back">Back</string>
     <string name="action_retry">Retry</string>

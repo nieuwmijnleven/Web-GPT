@@ -38,11 +38,15 @@ import com.shortsmonitor.core.design.components.ShortsMonitorBottomBarItem
 import com.shortsmonitor.core.design.components.ShortsMonitorTopBar
 import com.shortsmonitor.feature.events.EventsScreen
 import com.shortsmonitor.feature.observation.ObservationScreen
+import com.shortsmonitor.feature.observation.ObservingScreen
 import com.shortsmonitor.feature.onboarding.OnboardingScreen
 import com.shortsmonitor.feature.profiles.ProfilesScreen
 import com.shortsmonitor.feature.sessions.SessionsScreen
 import com.shortsmonitor.feature.settings.SettingsScreen
 import kotlinx.coroutines.launch
+
+/** 쇼츠 관찰 중 화면 라우트. 관찰 중에는 하단 내비게이션을 숨긴다. */
+private const val OBSERVE_ROUTE = "observe"
 
 /**
  * 하단 내비게이션 5개 기본 경로.
@@ -115,24 +119,26 @@ private fun ShortsMonitorMainApp() {
             ShortsMonitorTopBar(title = stringResource(R.string.app_name))
         },
         bottomBar = {
-            ShortsMonitorBottomBar(
-                items = ShortsMonitorDestination.entries.map { destination ->
-                    ShortsMonitorBottomBarItem(
-                        route = destination.route,
-                        labelRes = destination.labelRes,
-                        icon = destination.icon,
-                        selectedIcon = destination.selectedIcon,
-                    )
-                },
-                currentRoute = currentRoute,
-                onNavigate = { route ->
-                    navController.navigate(route) {
-                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-            )
+            if (currentRoute != OBSERVE_ROUTE) {
+                ShortsMonitorBottomBar(
+                    items = ShortsMonitorDestination.entries.map { destination ->
+                        ShortsMonitorBottomBarItem(
+                            route = destination.route,
+                            labelRes = destination.labelRes,
+                            icon = destination.icon,
+                            selectedIcon = destination.selectedIcon,
+                        )
+                    },
+                    currentRoute = currentRoute,
+                    onNavigate = { route ->
+                        navController.navigate(route) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                )
+            }
         },
     ) { innerPadding ->
         NavHost(
@@ -157,7 +163,16 @@ private fun ShortsMonitorMainApp() {
                             launchSingleTop = true
                         }
                     },
+                    onStartObservation = {
+                        navController.navigate(OBSERVE_ROUTE) { launchSingleTop = true }
+                    },
+                    onResumeObservation = {
+                        navController.navigate(OBSERVE_ROUTE) { launchSingleTop = true }
+                    },
                 )
+            }
+            composable(OBSERVE_ROUTE) {
+                ObservingScreen(onBack = { navController.popBackStack() })
             }
             composable(ShortsMonitorDestination.Sessions.route) { SessionsScreen() }
             composable(ShortsMonitorDestination.Events.route) { EventsScreen() }

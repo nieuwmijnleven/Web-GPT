@@ -79,6 +79,8 @@ fun ObservationScreen(
     onNavigateToSessions: () -> Unit,
     onNavigateToEvents: () -> Unit,
     onNavigateToProfiles: () -> Unit,
+    onStartObservation: () -> Unit,
+    onResumeObservation: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -137,6 +139,7 @@ fun ObservationScreen(
                             appVersion = BuildConfig.VERSION_NAME,
                         ),
                     )
+                    onStartObservation()
                 }
             }
             val endSession: (ObservationSessionEntity) -> Unit = { session ->
@@ -157,6 +160,7 @@ fun ObservationScreen(
                         endedAt = null,
                         endReason = null,
                     )
+                    onResumeObservation()
                 }
             }
             ObservationHomeContent(
@@ -167,6 +171,7 @@ fun ObservationScreen(
                 onSessionClick = onNavigateToSessions,
                 onNavigateToEvents = onNavigateToEvents,
                 onNavigateToProfiles = onNavigateToProfiles,
+                onResumeObservation = onResumeObservation,
                 onResetClick = { showResetSheet = true },
                 modifier = modifier,
             )
@@ -211,6 +216,7 @@ private fun ObservationHomeContent(
     onSessionClick: () -> Unit,
     onNavigateToEvents: () -> Unit,
     onNavigateToProfiles: () -> Unit,
+    onResumeObservation: () -> Unit,
     onResetClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -243,6 +249,7 @@ private fun ObservationHomeContent(
             item {
                 ActiveSessionCard(
                     session = session,
+                    onResume = onResumeObservation,
                     onEnd = { onEnd(session) },
                 )
             }
@@ -359,6 +366,7 @@ private fun StatusSummaryCard(
 @Composable
 private fun ActiveSessionCard(
     session: ObservationSessionEntity,
+    onResume: () -> Unit,
     onEnd: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -387,6 +395,11 @@ private fun ActiveSessionCard(
                 )
             }
             Spacer(Modifier.width(12.dp))
+            PrimaryActionButton(
+                text = stringResource(R.string.home_resume_session),
+                onClick = onResume,
+            )
+            Spacer(Modifier.width(8.dp))
             OutlinedActionButton(
                 text = stringResource(R.string.home_end_session),
                 onClick = onEnd,

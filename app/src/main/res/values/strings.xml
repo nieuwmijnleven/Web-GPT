@@ -82,6 +82,11 @@
     <string name="reset_session_message">쿠키와 사이트 데이터를 삭제합니다. shorts monitor 관찰 기록은 유지됩니다.</string>
     <string name="reset_confirm">초기화</string>
 
+    <!-- WebView (E단계) -->
+    <string name="webview_crash_title">WebView가 중단되었습니다</string>
+    <string name="webview_crash_message">다시 불러오기를 시도하세요.</string>
+    <string name="webview_crash_recover">다시 불러오기</string>
+
     <!-- 공통 컴포넌트 -->
     <string name="action_back">뒤로 가기</string>
     <string name="action_retry">다시 시도</string>
