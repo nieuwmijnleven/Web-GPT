@@ -178,7 +178,21 @@ private fun ShortsMonitorMainApp() {
                 arguments = listOf(navArgument("sessionId") { type = NavType.LongType }),
             ) { entry ->
                 val sessionId = entry.arguments?.getLong("sessionId") ?: return@composable
-                ObservingScreen(sessionId = sessionId, onBack = { navController.popBackStack() })
+                ObservingScreen(
+                    sessionId = sessionId,
+                    onBack = { navController.popBackStack() },
+                    onOpenEvent = {
+                        // 의심 이벤트 상세는 K단계에서 구현한다. 지금은 이벤트 목록으로 이동한다.
+                        navController.navigate(ShortsMonitorDestination.Events.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onOpenLog = {
+                        navController.navigate(ShortsMonitorDestination.Sessions.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                )
             }
             composable(ShortsMonitorDestination.Sessions.route) { SessionsScreen() }
             composable(ShortsMonitorDestination.Events.route) { EventsScreen() }

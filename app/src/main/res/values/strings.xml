@@ -87,6 +87,24 @@
     <string name="webview_crash_message">다시 불러오기를 시도하세요.</string>
     <string name="webview_crash_recover">다시 불러오기</string>
 
+    <!-- 쇼츠 관찰 중 화면 (I단계) -->
+    <string name="observe_status_paused">일시 중지</string>
+    <string name="observe_metric_shorts">관찰 쇼츠</string>
+    <string name="observe_metric_events">의심 이벤트</string>
+    <string name="observe_alert_title">중간 삽입 의심</string>
+    <string name="observe_alert_detail">자세히 보기</string>
+    <string name="observe_alert_later">나중에 확인</string>
+    <string name="observe_panel_video_id">영상 식별값</string>
+    <string name="observe_panel_order">현재 순서</string>
+    <string name="observe_panel_last_change">마지막 변화</string>
+    <string name="observe_panel_open_log">로그 열기</string>
+    <string name="observe_panel_pause">일시 중지</string>
+    <string name="observe_panel_resume">관찰 재개</string>
+    <string name="observe_panel_reset">초기화</string>
+    <string name="observe_no_active_video">아직 활성 영상이 없습니다.</string>
+    <string name="observe_panel_collapse">패널 접기</string>
+    <string name="observe_panel_expand">패널 펼치기</string>
+
     <!-- 공통 컴포넌트 -->
     <string name="action_back">뒤로 가기</string>
     <string name="action_retry">다시 시도</string>

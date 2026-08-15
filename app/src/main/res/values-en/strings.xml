@@ -83,6 +83,24 @@ Detection results are observed list-change clues and do not confirm the platform
     <string name="webview_crash_message">Try reloading the page.</string>
     <string name="webview_crash_recover">Reload</string>
 
+    <!-- 쇼츠 관찰 중 화면 (I단계) -->
+    <string name="observe_status_paused">Paused</string>
+    <string name="observe_metric_shorts">Observed shorts</string>
+    <string name="observe_metric_events">Suspected events</string>
+    <string name="observe_alert_title">Mid-insertion suspected</string>
+    <string name="observe_alert_detail">View details</string>
+    <string name="observe_alert_later">Later</string>
+    <string name="observe_panel_video_id">Video ID</string>
+    <string name="observe_panel_order">Current order</string>
+    <string name="observe_panel_last_change">Last change</string>
+    <string name="observe_panel_open_log">Open log</string>
+    <string name="observe_panel_pause">Pause</string>
+    <string name="observe_panel_resume">Resume</string>
+    <string name="observe_panel_reset">Reset</string>
+    <string name="observe_no_active_video">No active video yet.</string>
+    <string name="observe_panel_collapse">Collapse panel</string>
+    <string name="observe_panel_expand">Expand panel</string>
+
     <!-- 공통 컴포넌트 -->
     <string name="action_back">Back</string>
     <string name="action_retry">Retry</string>
