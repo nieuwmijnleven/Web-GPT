@@ -24,6 +24,10 @@ interface ObservationSessionDao {
     @Query("SELECT * FROM observation_session ORDER BY started_at DESC")
     fun observeAll(): Flow<List<ObservationSessionEntity>>
 
+    /** 내보내기용 일회성 전체 조회. */
+    @Query("SELECT * FROM observation_session ORDER BY started_at DESC")
+    suspend fun getAll(): List<ObservationSessionEntity>
+
     @Query("SELECT * FROM observation_session WHERE status = 'ACTIVE' ORDER BY started_at DESC LIMIT 1")
     suspend fun getActive(): ObservationSessionEntity?
 

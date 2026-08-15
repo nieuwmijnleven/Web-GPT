@@ -17,6 +17,10 @@ interface InsertionEventDao {
     @Query("SELECT * FROM insertion_event WHERE session_id = :sessionId ORDER BY detected_at DESC")
     fun observeBySession(sessionId: Long): Flow<List<InsertionEventEntity>>
 
+    /** 내보내기용 일회성 조회. */
+    @Query("SELECT * FROM insertion_event WHERE session_id = :sessionId ORDER BY detected_at DESC")
+    suspend fun getBySession(sessionId: Long): List<InsertionEventEntity>
+
     @Query("SELECT * FROM insertion_event ORDER BY detected_at DESC")
     fun observeAll(): Flow<List<InsertionEventEntity>>
 

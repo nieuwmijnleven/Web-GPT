@@ -11,9 +11,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -28,6 +32,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.shortsmonitor.app.BuildConfig
 import com.shortsmonitor.app.R
 import com.shortsmonitor.app.ShortsMonitorApplication
 import com.shortsmonitor.core.database.entity.ExposureEventEntity
@@ -44,15 +49,23 @@ import com.shortsmonitor.core.design.components.MetricCard
 import com.shortsmonitor.core.design.components.OutlinedActionButton
 import com.shortsmonitor.core.design.components.ShortsMonitorTopBar
 import com.shortsmonitor.core.design.components.StatusChip
+import com.shortsmonitor.core.export.ExportFileWriter
+import com.shortsmonitor.core.export.SessionExportBuilder
+import com.shortsmonitor.core.export.SessionExportLoader
 import com.shortsmonitor.core.logging.ShortsLog
 import com.shortsmonitor.core.model.SessionStatus
+import com.shortsmonitor.core.model.ShortsError
 import com.shortsmonitor.core.model.SnapshotChangeReason
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+/** 내보내기 형식 (N단계). */
+private enum class ExportFormat { JSON, CSV }
 
 /** 세션 상세 화면의 상태. */
 private data class SessionDetailUiState(
@@ -89,6 +102,64 @@ fun SessionDetailScreen(
     val scope = rememberCoroutineScope()
     var retryKey by remember { mutableIntStateOf(0) }
     var showDeleteSheet by remember { mutableStateOf(false) }
+
+    // N단계 내보내기 상태.
+    var showExportSheet by remember { mutableStateOf(false) }
+    var exportInProgress by remember { mutableStateOf(false) }
+    var exportError by remember { mutableStateOf<ShortsError.Export?>(null) }
+    var pendingExportUri by remember { mutableStateOf<CompletableDeferred<android.net.Uri?>?>(null) }
+    val jsonLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        pendingExportUri?.complete(uri)
+        pendingExportUri = null
+    }
+    val csvLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv"),
+    ) { uri ->
+        pendingExportUri?.complete(uri)
+        pendingExportUri = null
+    }
+
+    suspend fun pickExportUri(launcher: androidx.activity.result.ActivityResultLauncher<String>, name: String): android.net.Uri? {
+        val deferred = CompletableDeferred<android.net.Uri?>()
+        pendingExportUri = deferred
+        launcher.launch(name)
+        return deferred.await()
+    }
+
+    fun runExport(format: ExportFormat) {
+        showExportSheet = false
+        if (exportInProgress) return
+        exportInProgress = true
+        scope.launch {
+            try {
+                val data = SessionExportLoader.loadForSession(database, sessionId) ?: return@launch
+                when (format) {
+                    ExportFormat.JSON -> {
+                        val content = SessionExportBuilder.buildJson(data, BuildConfig.VERSION_NAME)
+                        val uri = pickExportUri(jsonLauncher, SessionExportBuilder.jsonFileName(sessionId))
+                        if (uri != null) {
+                            exportError = ExportFileWriter.write(context, uri, content)
+                        }
+                    }
+                    ExportFormat.CSV -> {
+                        val files = SessionExportBuilder.buildCsvFiles(data)
+                        for (file in files) {
+                            val uri = pickExportUri(csvLauncher, file.fileName) ?: break
+                            exportError = ExportFileWriter.write(context, uri, file.content)
+                            if (exportError != null) break
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                ShortsLog.e("Session export failed", e)
+                exportError = ShortsError.Export(e.message ?: "Export failed", e)
+            } finally {
+                exportInProgress = false
+            }
+        }
+    }
 
     val loadState by produceState<SessionDetailLoadState>(
         initialValue = SessionDetailLoadState.Loading,
@@ -140,11 +211,35 @@ fun SessionDetailScreen(
                 SessionDetailContent(
                     session = session,
                     ui = ui,
+                    onExport = { showExportSheet = true },
+                    exportInProgress = exportInProgress,
                     onDelete = { showDeleteSheet = true },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
         }
+    }
+
+    if (showExportSheet) {
+        ExportFormatSheet(
+            exportInProgress = exportInProgress,
+            onSelectJson = { runExport(ExportFormat.JSON) },
+            onSelectCsv = { runExport(ExportFormat.CSV) },
+            onDismiss = { showExportSheet = false },
+        )
+    }
+
+    exportError?.let { error ->
+        AlertDialog(
+            onDismissRequest = { exportError = null },
+            title = { Text(text = stringResource(R.string.export_error_title)) },
+            text = { Text(text = error.message ?: stringResource(R.string.export_error_message)) },
+            confirmButton = {
+                TextButton(onClick = { exportError = null }) {
+                    Text(text = stringResource(R.string.action_confirm))
+                }
+            },
+        )
     }
 
     if (showDeleteSheet) {
@@ -171,6 +266,8 @@ fun SessionDetailScreen(
 private fun SessionDetailContent(
     session: ObservationSessionEntity,
     ui: SessionDetailUiState,
+    onExport: () -> Unit,
+    exportInProgress: Boolean,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -274,11 +371,14 @@ private fun SessionDetailContent(
         }
 
         item {
-            // 내보내기는 N단계에서 구현한다.
             OutlinedActionButton(
-                text = stringResource(R.string.session_detail_export),
-                onClick = {},
-                enabled = false,
+                text = if (exportInProgress) {
+                    stringResource(R.string.export_in_progress)
+                } else {
+                    stringResource(R.string.session_detail_export)
+                },
+                onClick = onExport,
+                enabled = !exportInProgress,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -554,6 +654,56 @@ private fun HistoryRow(
             )
         }
     }
+}
+
+/** 내보내기 형식 선택 시트 (N단계). */
+@Composable
+private fun ExportFormatSheet(
+    exportInProgress: Boolean,
+    onSelectJson: () -> Unit,
+    onSelectCsv: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = modifier,
+        title = { Text(text = stringResource(R.string.export_format_title)) },
+        text = {
+            Column {
+                TextButton(
+                    onClick = onSelectJson,
+                    enabled = !exportInProgress,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(text = stringResource(R.string.export_format_json))
+                }
+                Text(
+                    text = stringResource(R.string.export_format_json_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(12.dp))
+                TextButton(
+                    onClick = onSelectCsv,
+                    enabled = !exportInProgress,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(text = stringResource(R.string.export_format_csv))
+                }
+                Text(
+                    text = stringResource(R.string.export_format_csv_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss, enabled = !exportInProgress) {
+                Text(text = stringResource(R.string.action_cancel))
+            }
+        },
+    )
 }
 
 private fun formatDuration(session: ObservationSessionEntity): String {

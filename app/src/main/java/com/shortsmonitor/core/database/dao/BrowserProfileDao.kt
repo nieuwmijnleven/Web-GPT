@@ -16,6 +16,10 @@ interface BrowserProfileDao {
     @Query("SELECT * FROM browser_profile ORDER BY created_at DESC")
     fun observeAll(): Flow<List<BrowserProfileEntity>>
 
+    /** 내보내기용 일회성 전체 조회. */
+    @Query("SELECT * FROM browser_profile ORDER BY created_at DESC")
+    suspend fun getAll(): List<BrowserProfileEntity>
+
     @Query("SELECT * FROM browser_profile WHERE id = :id")
     suspend fun getById(id: Long): BrowserProfileEntity?
 

@@ -257,4 +257,14 @@ Detection results are observed list-change clues and do not confirm the platform
     <string name="reset_item_cache">WebView cache</string>
     <string name="reset_item_history">Browsing history</string>
     <string name="reset_item_form_data">Form data</string>
+
+    <!-- N stage: Export -->
+    <string name="export_format_title">Export format</string>
+    <string name="export_format_json">Export as JSON</string>
+    <string name="export_format_json_desc">Saves the session, shorts, exposure order, snapshots, suspected events, user verdicts, memos, and history as a single JSON file.</string>
+    <string name="export_format_csv">Export as CSV</string>
+    <string name="export_format_csv_desc">Saves the session, shorts, exposure events, and suspected events as purpose-separated CSV files. Choose a save location for each file.</string>
+    <string name="export_in_progress">Exporting…</string>
+    <string name="export_error_title">Export failed</string>
+    <string name="export_error_message">The file could not be saved. Please try again.</string>
 </resources>

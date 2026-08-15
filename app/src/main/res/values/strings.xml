@@ -262,4 +262,14 @@
     <string name="reset_item_cache">WebView 캐시</string>
     <string name="reset_item_history">탐색 기록</string>
     <string name="reset_item_form_data">폼 데이터</string>
+
+    <!-- N단계: 내보내기 -->
+    <string name="export_format_title">내보내기 형식</string>
+    <string name="export_format_json">JSON 내보내기</string>
+    <string name="export_format_json_desc">세션·쇼츠·노출 순서·스냅샷·의심 이벤트·사용자 판정·메모·이력을 하나의 JSON 파일로 저장합니다.</string>
+    <string name="export_format_csv">CSV 내보내기</string>
+    <string name="export_format_csv_desc">세션·쇼츠·노출 이벤트·의심 이벤트를 목적별 CSV 파일로 저장합니다. 파일마다 저장 위치를 선택합니다.</string>
+    <string name="export_in_progress">내보내는 중…</string>
+    <string name="export_error_title">내보내기 실패</string>
+    <string name="export_error_message">파일을 저장하지 못했습니다. 다시 시도해 주세요.</string>
 </resources>

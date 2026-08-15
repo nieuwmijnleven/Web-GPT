@@ -1,5 +1,7 @@
 package com.shortsmonitor.feature.observation
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,10 +21,12 @@ import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -56,11 +60,16 @@ import com.shortsmonitor.core.design.components.OutlinedActionButton
 import com.shortsmonitor.core.design.components.PrimaryActionButton
 import com.shortsmonitor.core.design.components.SessionCard
 import com.shortsmonitor.core.design.components.StatusChip
+import com.shortsmonitor.core.export.ExportFileWriter
+import com.shortsmonitor.core.export.SessionExportBuilder
+import com.shortsmonitor.core.export.SessionExportLoader
 import com.shortsmonitor.core.logging.ShortsLog
 import com.shortsmonitor.core.model.SessionEndReason
 import com.shortsmonitor.core.model.SessionStatus
+import com.shortsmonitor.core.model.ShortsError
 import com.shortsmonitor.core.reset.ResetItem
 import com.shortsmonitor.core.reset.SessionResetter
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -95,6 +104,40 @@ fun ObservationScreen(
     var resetResult by remember { mutableStateOf<SessionResetter.ResetResult?>(null) }
     var resetInProgress by remember { mutableStateOf(false) }
     val sessionResetter = remember { SessionResetter() }
+
+    // N단계 로그 내보내기 상태.
+    var exportInProgress by remember { mutableStateOf(false) }
+    var exportError by remember { mutableStateOf<ShortsError.Export?>(null) }
+    var pendingExportUri by remember { mutableStateOf<CompletableDeferred<android.net.Uri?>?>(null) }
+    val jsonLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        pendingExportUri?.complete(uri)
+        pendingExportUri = null
+    }
+    val runExportAll: () -> Unit = {
+        if (!exportInProgress) {
+            exportInProgress = true
+            scope.launch {
+            try {
+                val data = SessionExportLoader.loadAll(database)
+                val content = SessionExportBuilder.buildAllJson(data, BuildConfig.VERSION_NAME)
+                val deferred = CompletableDeferred<android.net.Uri?>()
+                pendingExportUri = deferred
+                jsonLauncher.launch(SessionExportBuilder.allJsonFileName())
+                val uri = deferred.await()
+                if (uri != null) {
+                    exportError = ExportFileWriter.write(context, uri, content)
+                }
+            } catch (e: Exception) {
+                ShortsLog.e("Export all failed", e)
+                exportError = ShortsError.Export(e.message ?: "Export failed", e)
+            } finally {
+                exportInProgress = false
+            }
+            }
+        }
+    }
 
     val uiState by produceState<ObservationHomeUiState>(
         initialValue = ObservationHomeUiState.Loading,
@@ -178,6 +221,7 @@ fun ObservationScreen(
                 onNavigateToProfiles = onNavigateToProfiles,
                 onResumeObservation = onResumeObservation,
                 onResetClick = { showResetSheet = true },
+                onExportClick = runExportAll,
                 modifier = modifier,
             )
         }
@@ -215,6 +259,19 @@ fun ObservationScreen(
             onDismiss = { resetResult = null },
         )
     }
+
+    exportError?.let { error ->
+        AlertDialog(
+            onDismissRequest = { exportError = null },
+            title = { Text(text = stringResource(R.string.export_error_title)) },
+            text = { Text(text = error.message ?: stringResource(R.string.export_error_message)) },
+            confirmButton = {
+                TextButton(onClick = { exportError = null }) {
+                    Text(text = stringResource(R.string.action_confirm))
+                }
+            },
+        )
+    }
 }
 
 private sealed interface ObservationHomeUiState {
@@ -243,6 +300,7 @@ private fun ObservationHomeContent(
     onNavigateToProfiles: () -> Unit,
     onResumeObservation: (Long) -> Unit,
     onResetClick: () -> Unit,
+    onExportClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val lastObservedAt = state.sessions.maxOfOrNull { it.startedAt }
@@ -295,6 +353,7 @@ private fun ObservationHomeContent(
                 onNavigateToProfiles = onNavigateToProfiles,
                 onReset = onResetClick,
                 onNavigateToEvents = onNavigateToEvents,
+                onExport = onExportClick,
             )
         }
 
@@ -481,6 +540,7 @@ private fun QuickActionsRow(
     onNavigateToProfiles: () -> Unit,
     onReset: () -> Unit,
     onNavigateToEvents: () -> Unit,
+    onExport: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -505,11 +565,10 @@ private fun QuickActionsRow(
             onClick = onNavigateToEvents,
             modifier = Modifier.weight(1f),
         )
-        // 로그 내보내기는 N단계에서 실제 동작을 연결한다.
         QuickAction(
             icon = Icons.Outlined.Share,
             label = stringResource(R.string.home_action_export),
-            onClick = {},
+            onClick = onExport,
             modifier = Modifier.weight(1f),
         )
     }

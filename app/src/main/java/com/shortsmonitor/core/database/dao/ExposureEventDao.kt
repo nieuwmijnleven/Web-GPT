@@ -16,6 +16,10 @@ interface ExposureEventDao {
     @Query("SELECT * FROM exposure_event WHERE session_id = :sessionId ORDER BY exposure_order ASC")
     fun observeBySession(sessionId: Long): Flow<List<ExposureEventEntity>>
 
+    /** 내보내기용 일회성 조회. */
+    @Query("SELECT * FROM exposure_event WHERE session_id = :sessionId ORDER BY exposure_order ASC")
+    suspend fun getBySession(sessionId: Long): List<ExposureEventEntity>
+
     /** 아직 종료되지 않은 노출 이벤트의 노출 종료 시각을 기록한다. */
     @Query(
         "UPDATE exposure_event SET exposed_until = :until " +

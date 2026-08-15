@@ -16,6 +16,10 @@ interface ObservedShortDao {
     @Query("SELECT * FROM observed_short WHERE session_id = :sessionId ORDER BY first_seen_at ASC")
     fun observeBySession(sessionId: Long): Flow<List<ObservedShortEntity>>
 
+    /** 내보내기용 일회성 조회. */
+    @Query("SELECT * FROM observed_short WHERE session_id = :sessionId ORDER BY first_seen_at ASC")
+    suspend fun getBySession(sessionId: Long): List<ObservedShortEntity>
+
     /** 모든 세션의 관찰 쇼츠 (세션 목록 검색·집계용). */
     @Query("SELECT * FROM observed_short ORDER BY session_id ASC, first_seen_at ASC")
     fun observeAll(): Flow<List<ObservedShortEntity>>
