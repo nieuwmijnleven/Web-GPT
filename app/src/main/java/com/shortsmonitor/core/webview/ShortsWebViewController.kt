@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.shortsmonitor.app.BuildConfig
 import com.shortsmonitor.core.logging.ShortsLog
+import com.shortsmonitor.core.observer.ObserverBridge
 
 /**
  * WebView 생명주기와 설정을 관리하는 전용 컨트롤러.
@@ -32,7 +33,12 @@ class ShortsWebViewController(private val context: Context) {
     /** 유튜브 외 주소의 최상위 탐색 시 호출된다. */
     var onExternalNavigation: ((String) -> Unit)? = null
 
+    /** JavaScript 관찰기 브리지. loadUrl 이전에 attach되어야 한다. */
+    var observerBridge: ObserverBridge? = null
+
     private var webView: WebView? = null
+
+    val hasWebView: Boolean get() = webView != null
 
     /**
      * WebView를 생성하고 초기 설정을 적용한다.
@@ -47,6 +53,8 @@ class ShortsWebViewController(private val context: Context) {
         if (BuildConfig.DEBUG) {
             WebView.setWebContentsDebuggingEnabled(true)
         }
+        // 관찰기 통신 객체는 페이지를 열기 전에 등록하고 허용 출처를 제한한다.
+        observerBridge?.attach(created)
         // restoreState는 복원된 WebBackForwardList를 반환하며, 복원 실패 시 null이다.
         val restored = savedState != null && created.restoreState(savedState) != null
         if (!restored) created.loadUrl(startUrl)
@@ -70,6 +78,12 @@ class ShortsWebViewController(private val context: Context) {
     fun recoverFromRendererGone() {
         rendererGone = false
         webView?.reload()
+    }
+
+    /** 관찰기 중단 감지 시 JavaScript 관찰기를 재시작한다. */
+    fun restartObserver() {
+        val wv = webView ?: return
+        observerBridge?.restartObserver(wv)
     }
 
     /** WebView 히스토리로 뒤로 가고, 처리했으면 true를 반환한다. */
@@ -134,6 +148,12 @@ class ShortsWebViewController(private val context: Context) {
             ShortsLog.w("WebView renderer process gone (crash=${detail.didCrash()})")
             rendererGone = true
             return true
+        }
+
+        override fun onPageFinished(view: WebView, url: String) {
+            super.onPageFinished(view, url)
+            // 문서 시작 시점 스크립트가 지원되지 않는 환경에서는 로드 완료 후 주입한다.
+            observerBridge?.injectScript(view)
         }
     }
 

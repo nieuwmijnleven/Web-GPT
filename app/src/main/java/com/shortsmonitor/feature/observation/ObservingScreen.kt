@@ -5,12 +5,16 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.shortsmonitor.core.logging.ShortsLog
+import com.shortsmonitor.core.observer.ObserverBridge
+import com.shortsmonitor.core.observer.ObserverWatchdog
 import com.shortsmonitor.core.webview.ShortsWebView
 import com.shortsmonitor.core.webview.ShortsWebViewController
+import kotlinx.coroutines.delay
 
 private const val YOUTUBE_SHORTS_URL = "https://m.youtube.com/shorts"
 
@@ -26,6 +30,23 @@ fun ObservingScreen(
 ) {
     val context = LocalContext.current
     val controller = remember { ShortsWebViewController(context) }
+    val observerBridge = remember {
+        ObserverBridge { message ->
+            ShortsLog.d("Observer message received: ${message::class.simpleName}")
+        }
+    }
+    controller.observerBridge = observerBridge
+
+    // 관찰기 하트비트 감시: 일정 시간 하트비트가 없으면 중단으로 보고 재시작한다.
+    LaunchedEffect(controller) {
+        while (true) {
+            delay(ObserverWatchdog.CHECK_INTERVAL_MS)
+            if (controller.hasWebView && !observerBridge.isObserverAlive()) {
+                ShortsLog.w("Observer heartbeat lost; restarting observer")
+                controller.restartObserver()
+            }
+        }
+    }
 
     // WebView 히스토리가 있으면 WebView 안에서 뒤로 가고, 없으면 화면을 닫는다.
     BackHandler {
