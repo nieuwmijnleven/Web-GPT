@@ -336,4 +336,12 @@ Detection results are observed list-change clues and do not confirm the platform
     <string name="notification_event_title">Insertion suspected</string>
     <string name="notification_event_text">A new video appeared mid-list: %1$s</string>
     <string name="notification_error_title">shorts monitor observation error</string>
+
+    <!-- K stage follow-up: verdict history -->
+    <string name="event_detail_verdict_history">Verdict history</string>
+    <string name="event_detail_no_verdict_history">No verdict changes yet.</string>
+
+    <!-- Final screen structure follow-up: privacy notice in settings -->
+    <string name="settings_section_privacy">Privacy</string>
+    <string name="settings_privacy_notice">Privacy notice</string>
 </resources>

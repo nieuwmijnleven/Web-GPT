@@ -341,4 +341,12 @@
     <string name="notification_event_title">중간 삽입 의심 감지</string>
     <string name="notification_event_text">새 영상이 목록 중간에 나타났습니다: %1$s</string>
     <string name="notification_error_title">shorts monitor 관찰 오류</string>
+
+    <!-- K단계 보완: 판정 변경 이력 -->
+    <string name="event_detail_verdict_history">판정 변경 이력</string>
+    <string name="event_detail_no_verdict_history">판정 변경 이력이 없습니다.</string>
+
+    <!-- 최종 화면 구조 보완: 설정 개인정보 안내 -->
+    <string name="settings_section_privacy">개인정보</string>
+    <string name="settings_privacy_notice">개인정보 안내</string>
 </resources>

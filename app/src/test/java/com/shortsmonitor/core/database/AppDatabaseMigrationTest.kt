@@ -44,4 +44,10 @@ class AppDatabaseMigrationTest {
         helper.createDatabase(testDb, 2).apply { close() }
         helper.runMigrationsAndValidate(testDb, 3, true, *AppDatabase.ALL_MIGRATIONS)
     }
+
+    @Test
+    fun migrateToV4_addsVerdictHistoryTable() {
+        helper.createDatabase(testDb, 3).apply { close() }
+        helper.runMigrationsAndValidate(testDb, 4, true, *AppDatabase.ALL_MIGRATIONS)
+    }
 }

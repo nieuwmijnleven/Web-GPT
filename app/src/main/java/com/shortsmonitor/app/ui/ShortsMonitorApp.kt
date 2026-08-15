@@ -168,10 +168,8 @@ private fun ShortsMonitorMainApp() {
         ) {
             composable(ShortsMonitorDestination.Observation.route) {
                 ObservationScreen(
-                    onNavigateToSessions = {
-                        navController.navigate(ShortsMonitorDestination.Sessions.route) {
-                            launchSingleTop = true
-                        }
+                    onOpenSession = { sessionId ->
+                        navController.navigate("sessions/$sessionId") { launchSingleTop = true }
                     },
                     onNavigateToEvents = {
                         navController.navigate(ShortsMonitorDestination.Events.route) {

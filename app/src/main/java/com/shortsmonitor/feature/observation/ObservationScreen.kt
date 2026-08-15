@@ -87,7 +87,7 @@ private const val RECENT_SESSION_LIMIT = 5
  */
 @Composable
 fun ObservationScreen(
-    onNavigateToSessions: () -> Unit,
+    onOpenSession: (Long) -> Unit,
     onNavigateToEvents: () -> Unit,
     onNavigateToProfiles: () -> Unit,
     onStartObservation: (Long) -> Unit,
@@ -216,7 +216,7 @@ fun ObservationScreen(
                 onStart = startObservation,
                 onEnd = endSession,
                 onResume = resumeSession,
-                onSessionClick = onNavigateToSessions,
+                onOpenSession = onOpenSession,
                 onNavigateToEvents = onNavigateToEvents,
                 onNavigateToProfiles = onNavigateToProfiles,
                 onResumeObservation = onResumeObservation,
@@ -295,7 +295,7 @@ private fun ObservationHomeContent(
     onStart: () -> Unit,
     onEnd: (ObservationSessionEntity) -> Unit,
     onResume: (ObservationSessionEntity) -> Unit,
-    onSessionClick: () -> Unit,
+    onOpenSession: (Long) -> Unit,
     onNavigateToEvents: () -> Unit,
     onNavigateToProfiles: () -> Unit,
     onResumeObservation: (Long) -> Unit,
@@ -382,7 +382,7 @@ private fun ObservationHomeContent(
                         stringResource(R.string.session_metric_events) to
                             state.eventsBySession[session.id].orZero(),
                     ),
-                    onClick = onSessionClick,
+                    onClick = { onOpenSession(session.id) },
                 )
             }
         }

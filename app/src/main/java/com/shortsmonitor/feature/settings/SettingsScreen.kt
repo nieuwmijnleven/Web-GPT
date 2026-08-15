@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -92,6 +94,8 @@ fun SettingsScreen(
     var pendingExportUri by remember { mutableStateOf<CompletableDeferred<android.net.Uri?>?>(null) }
     // 삭제 완료 안내.
     var deleteResult by remember { mutableStateOf<String?>(null) }
+    // 개인정보 안내 다이얼로그.
+    var showPrivacy by remember { mutableStateOf(false) }
 
     val jsonLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json"),
@@ -325,6 +329,15 @@ fun SettingsScreen(
             )
         }
 
+        item { SettingsSectionHeader(stringResource(R.string.settings_section_privacy)) }
+        item {
+            OutlinedActionButton(
+                text = stringResource(R.string.settings_privacy_notice),
+                onClick = { showPrivacy = true },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
         item { SettingsSectionHeader(stringResource(R.string.settings_section_diagnostics)) }
         item {
             OutlinedActionButton(
@@ -409,6 +422,28 @@ fun SettingsScreen(
             text = { Text(text = error.message ?: stringResource(R.string.export_error_message)) },
             confirmButton = {
                 TextButton(onClick = { exportError = null }) {
+                    Text(text = stringResource(R.string.action_confirm))
+                }
+            },
+        )
+    }
+
+    // 개인정보 안내 (최종 화면 구조의 설정 항목).
+    if (showPrivacy) {
+        AlertDialog(
+            onDismissRequest = { showPrivacy = false },
+            title = { Text(text = stringResource(R.string.privacy_title)) },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text(
+                        text = stringResource(R.string.privacy_body),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPrivacy = false }) {
                     Text(text = stringResource(R.string.action_confirm))
                 }
             },

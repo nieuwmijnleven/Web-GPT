@@ -44,6 +44,7 @@ import com.shortsmonitor.app.R
 import com.shortsmonitor.app.ShortsMonitorApplication
 import com.shortsmonitor.core.database.entity.InsertionEventEntity
 import com.shortsmonitor.core.database.entity.ObservedShortEntity
+import com.shortsmonitor.core.database.entity.VerdictHistoryEntity
 import com.shortsmonitor.core.design.StatusError
 import com.shortsmonitor.core.design.StatusNormal
 import com.shortsmonitor.core.design.StatusPending
@@ -78,6 +79,7 @@ private sealed interface EventDetailLoadState {
         val beforeVideoIds: List<String>,
         val afterVideoIds: List<String>,
         val profileName: String?,
+        val history: List<VerdictHistoryEntity>,
     ) : EventDetailLoadState
 }
 
@@ -127,12 +129,14 @@ fun EventDetailScreen(
                     database.listSnapshotDao().observeById(it).first()
                 }
                 val profiles = database.browserProfileDao().observeAll().first()
+                val history = database.verdictHistoryDao().observeByEvent(event.id).first()
                 value = EventDetailLoadState.Content(
                     event = event,
                     shortsById = shorts.associateBy { it.videoId },
                     beforeVideoIds = before?.let { parseVideoIds(it.videoIdsJson) }.orEmpty(),
                     afterVideoIds = after?.let { parseVideoIds(it.videoIdsJson) }.orEmpty(),
                     profileName = profiles.maxByOrNull { it.lastUsedAt ?: 0L }?.name,
+                    history = history,
                 )
             }
         } catch (e: Exception) {
@@ -181,6 +185,15 @@ fun EventDetailScreen(
                     onVerdict = { verdict ->
                         scope.launch {
                             database.insertionEventDao().updateUserVerdict(content.event.id, verdict)
+                            // 사용자 판정 변경 이력(K단계)을 저장한다.
+                            database.verdictHistoryDao().insert(
+                                VerdictHistoryEntity(
+                                    eventId = content.event.id,
+                                    userVerdict = verdict,
+                                    userMemo = memoText.trim().ifBlank { null },
+                                    changedAt = System.currentTimeMillis(),
+                                ),
+                            )
                         }
                     },
                     modifier = Modifier.fillMaxSize(),
@@ -290,8 +303,59 @@ private fun EventDetailContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+
+        item {
+            SectionHeader(stringResource(R.string.event_detail_verdict_history))
+        }
+        if (content.history.isEmpty()) {
+            item {
+                EmptyState(title = stringResource(R.string.event_detail_no_verdict_history))
+            }
+        } else {
+            items(content.history, key = { it.id }) { history ->
+                VerdictHistoryRow(history = history)
+            }
+        }
         item {
             Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+/** 사용자 판정 변경 이력 한 줄. 판정·변경 시각·변경 시점 메모를 표시한다. */
+@Composable
+private fun VerdictHistoryRow(
+    history: VerdictHistoryEntity,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(userVerdictLabel(history.userVerdict)),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = formatTimestamp(history.changedAt),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (!history.userMemo.isNullOrBlank()) {
+                Text(
+                    text = history.userMemo,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
