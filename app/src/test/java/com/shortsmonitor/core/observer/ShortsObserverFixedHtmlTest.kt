@@ -217,4 +217,37 @@ class ShortsObserverFixedHtmlTest {
             assertEquals(2, data.getInt("count"))
         }
     }
+
+    @Test
+    fun activeWithoutVideoId_publishesActiveShortChangedWithIdentityKey() {
+        // 영상 식별값을 추출할 수 없는 DOM에서도 활성 영상은 발행되어야 한다.
+        // (is-active 등으로 활성 항목은 감지되지만 videoId가 없는 경우)
+        ShortsObserverHarness.newSession().use { h ->
+            h.setItems(
+                "<ytm-shorts-video-renderer is-active>" +
+                    "<ytm-shorts-lockup-view-model__title>제목</ytm-shorts-lockup-view-model__title>" +
+                    "</ytm-shorts-video-renderer>" +
+                    "<ytm-shorts-video-renderer>" +
+                    "<ytm-shorts-lockup-view-model__title>제목2</ytm-shorts-lockup-view-model__title>" +
+                    "</ytm-shorts-video-renderer>",
+            )
+            h.loadObserver()
+            h.flushTimers(300)
+
+            val messages = h.messages()
+            val activeChanged = buildList {
+                for (i in 0 until messages.length()) {
+                    val m = messages.getJSONObject(i)
+                    if (m.getString("type") == "active_short_changed") add(m)
+                }
+            }
+            // 영상 식별값이 없어도 identityKey 기반으로 활성 변경이 발행된다.
+            assertTrue(activeChanged.isNotEmpty())
+            val data = activeChanged[0].getJSONObject("data")
+            val short = data.getJSONObject("short")
+            assertEquals("", short.getString("videoId"))
+            assertTrue(short.getString("identityKey").isNotEmpty())
+            assertEquals(0, data.getInt("index"))
+        }
+    }
 }

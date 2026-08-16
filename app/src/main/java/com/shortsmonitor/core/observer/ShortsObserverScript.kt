@@ -359,10 +359,21 @@ object ShortsObserverScript {
               shorts.push(s);
             }
             var active = ShortsDomAdapter.detectActiveItem(domItems);
+            // 활성 항목은 DOM 요소에서 직접 빌드한다. 영상 식별값을 추출하지 못해도
+            // identityKey(URL·해시) 기반으로 active_short_changed를 발행할 수 있다.
+            var activeShort = active.item ? buildShort(active.item) : null;
+            var activeIndex = -1;
+            if (activeShort) {
+              for (var q = 0; q < shorts.length; q++) {
+                // 중복 제거된 목록 기준 인덱스 (domItems 기준 인덱스와 다를 수 있다).
+                if (shorts[q].identityKey === activeShort.identityKey) { activeIndex = q; break; }
+              }
+            }
             return {
               shorts: shorts,
-              activeId: active.item ? ShortsDomAdapter.extractVideoId(active.item) : '',
-              activeIndex: active.index,
+              activeShort: activeShort,
+              activeId: activeShort ? (activeShort.videoId || activeShort.identityKey) : '',
+              activeIndex: activeIndex,
               activeConfidence: active.confidence,
               activeSignals: active.signals,
               selectorStats: collected.stats,
@@ -461,21 +472,12 @@ object ShortsObserverScript {
           }
 
           function checkActiveChange(snapshot) {
-            if (!snapshot.activeId) { return; }
-            if (snapshot.activeId === currentActiveKey) { return; }
-            currentActiveKey = snapshot.activeId;
-            var target = null;
-            for (var i = 0; i < snapshot.shorts.length; i++) {
-              if (snapshot.shorts[i].videoId === snapshot.activeId ||
-                  snapshot.shorts[i].identityKey === snapshot.activeId) {
-                target = snapshot.shorts[i];
-                break;
-              }
-            }
-            if (!target && snapshot.activeIndex >= 0 && snapshot.activeIndex < snapshot.shorts.length) {
-              target = snapshot.shorts[snapshot.activeIndex];
-            }
-            if (!target) { return; }
+            // 활성 항목이 감지됐으면 DOM 요소에서 빌드한 short를 그대로 사용한다.
+            // 영상 식별값이 없어도 identityKey(URL·해시)가 있으면 발행한다.
+            var target = snapshot.activeShort;
+            if (!target || !target.identityKey) { return; }
+            if (target.identityKey === currentActiveKey) { return; }
+            currentActiveKey = target.identityKey;
             postMessage({
               type: 'active_short_changed',
               data: {
