@@ -83,6 +83,9 @@ private const val YOUTUBE_SHORTS_URL = "https://m.youtube.com/shorts"
 
 private const val YOUTUBE_HOME_URL = "https://m.youtube.com"
 
+/** 네이티브 시간 기반 DOM 후보 안정화 확인 주기. */
+private const val DOM_STABILIZE_CHECK_INTERVAL_MS = 2_000L
+
 /** 관찰 중 화면의 상태 요약. */
 private data class ObservingUiState(
     val shortsCount: Int = 0,
@@ -167,6 +170,12 @@ fun ObservingScreen(
             listSnapshotDao = database.listSnapshotDao(),
             insertionEventDao = database.insertionEventDao(),
             settings = { observationSettings },
+            // v5: 네트워크 시퀀스 분석 DAO.
+            networkSequenceDao = database.networkSequenceDao(),
+            networkSequenceItemDao = database.networkSequenceItemDao(),
+            networkVideoRequestDao = database.networkVideoRequestDao(),
+            sequenceLineageDao = database.sequenceLineageDao(),
+            networkObserverStateDao = database.networkObserverStateDao(),
         )
     }
 
@@ -283,6 +292,17 @@ fun ObservingScreen(
             if (controller.hasWebView && !observerBridge.isObserverAlive()) {
                 ShortsLog.w("Observer heartbeat lost; restarting observer")
                 controller.restartObserver()
+            }
+        }
+    }
+
+    // 네이티브 시간 기반 DOM 후보 안정화: JavaScript가 같은 목록 키로 스냅샷을
+    // 다시 보내지 않아도, 후보가 일정 시간 유지되면 마지막 목록으로 안정화를 재확인한다.
+    LaunchedEffect(sessionId) {
+        while (true) {
+            delay(DOM_STABILIZE_CHECK_INTERVAL_MS)
+            if (!paused) {
+                recorder.stabilizeDomCandidates(sessionId)
             }
         }
     }

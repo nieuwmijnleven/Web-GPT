@@ -653,12 +653,14 @@ private fun AutoVerdictCard(
                     when (autoVerdict) {
                         AutoVerdict.CANDIDATE -> R.string.auto_verdict_candidate
                         AutoVerdict.CONFIRMED -> R.string.auto_verdict_confirmed
+                        AutoVerdict.UNKNOWN -> R.string.auto_verdict_unknown
                         AutoVerdict.INVALIDATED -> R.string.auto_verdict_invalidated
                     },
                 ),
                 statusColor = when (autoVerdict) {
                     AutoVerdict.CANDIDATE -> StatusPending
                     AutoVerdict.CONFIRMED -> StatusSuspected
+                    AutoVerdict.UNKNOWN -> StatusPending
                     AutoVerdict.INVALIDATED -> StatusError
                 },
             )

@@ -308,6 +308,76 @@ object ShortsObserverHarness {
         // ===== 메시지 캡처 =====
         var __messages = [];
         function __clearMessages() { __messages = []; }
+
+        // ===== 네트워크 스텁 (fetch/XHR) =====
+        // 관찰기가 원본 동작을 변경하지 않는지 검증하기 위해 호출 기록을 남긴다.
+        var __fetchCalls = [];
+        var __xhrSends = [];
+        var __fetchResponseText = '';
+        var __xhrResponseText = '';
+        var __fetchResultReceived = null;
+
+        window.fetch = function (input, init) {
+          __fetchCalls.push({ url: String(input), body: (init && init.body) || '' });
+          var fakeResponse = {
+            __tag: 'fakeResponse',
+            clone: function () {
+              return {
+                text: function () {
+                  return {
+                    then: function (ok) {
+                      if (typeof __fetchResponseText === 'string') { ok(__fetchResponseText); }
+                      return { then: function () {} };
+                    }
+                  };
+                }
+              };
+            }
+          };
+          var result = { then: function (cb) { __fetchResultReceived = fakeResponse; cb(fakeResponse); return { then: function () {} }; } };
+          return result;
+        };
+
+        function FakeXHR() {
+          this.__smUrl = '';
+          this.listeners = {};
+          this.responseType = '';
+          this.responseText = '';
+        }
+        FakeXHR.prototype.open = function (method, url) {
+          this.__smUrl = String(url || '');
+        };
+        FakeXHR.prototype.send = function (body) {
+          this.__body = typeof body === 'string' ? body : '';
+          __xhrSends.push({ url: this.__smUrl, body: this.__body });
+          if (this.responseType === '' || this.responseType === 'text') {
+            if (typeof __xhrResponseText === 'string') { this.responseText = __xhrResponseText; }
+          }
+          var listeners = this.listeners.load || [];
+          for (var i = 0; i < listeners.length; i++) {
+            try { listeners[i](); } catch (e) {}
+          }
+        };
+        FakeXHR.prototype.addEventListener = function (type, fn) {
+          (this.listeners[type] = this.listeners[type] || []).push(fn);
+        };
+        window.XMLHttpRequest = FakeXHR;
+        // 실제 브라우저처럼 전역 이름으로도 접근 가능하게 한다.
+        var XMLHttpRequest = FakeXHR;
+
+        // 파서 테스트용 헬퍼 (관찰기 로드 후 사용).
+        function __parseSequenceResponse(text) {
+          return JSON.stringify(window.__shortsMonitorParser.parseSequenceResponse(text));
+        }
+        function __decodeSequenceParams(raw) {
+          return JSON.stringify(window.__shortsMonitorParser.decodeSequenceParams(raw));
+        }
+        function __parseRequestBody(kind, text) {
+          return JSON.stringify(window.__shortsMonitorParser.parseRequestBody(kind, text));
+        }
+        function __classifyUrlChange(prev, next) {
+          return JSON.stringify(window.__shortsMonitorParser.classifyUrlChange(prev, next));
+        }
     """.trimIndent()
 
     /** 가짜 브라우저 환경 + 관찰기를 로드한 세션. */
@@ -338,6 +408,46 @@ object ShortsObserverHarness {
         fun loadObserver() {
             cx.evaluateString(scope, ShortsObserverScript.script, "shorts-observer", 1, null)
         }
+
+        // ===== 네트워크 테스트 헬퍼 =====
+
+        /** fetch 응답 본문을 설정한다. */
+        fun setFetchResponse(text: String) = eval("__fetchResponseText = ${quote(text)};")
+
+        /** XHR 응답 본문을 설정한다. */
+        fun setXhrResponse(text: String) = eval("__xhrResponseText = ${quote(text)};")
+
+        /** 관찰 대상 URL로 fetch를 호출한다. */
+        fun fetch(url: String, body: String) = eval("window.fetch(${quote(url)}, { body: ${quote(body)} });")
+
+        /** 관찰 대상 URL로 XHR 요청을 보낸다. */
+        fun xhrSend(url: String, body: String) =
+            eval("var __x = new XMLHttpRequest(); __x.open('POST', ${quote(url)}); __x.send(${quote(body)});")
+
+        /** fetch 호출 기록 (JSON). */
+        fun fetchCalls(): JSONArray = JSONArray(eval("JSON.stringify(__fetchCalls)"))
+
+        /** XHR send 기록 (JSON). */
+        fun xhrSends(): JSONArray = JSONArray(eval("JSON.stringify(__xhrSends)"))
+
+        /** 원본 fetch 소비자에게 전달된 응답이 그대로인지 확인용. */
+        fun fetchResultTag(): String = eval("__fetchResultReceived ? __fetchResultReceived.__tag : 'null'")
+
+        /** 네트워크 파서: 시퀀스 응답 분석 결과 (JSON). */
+        fun parseSequenceResponse(text: String): String =
+            eval("__parseSequenceResponse(${quote(text)})")
+
+        /** 네트워크 파서: sequenceParams 디코딩 결과 (JSON). */
+        fun decodeSequenceParams(raw: String): String =
+            eval("__decodeSequenceParams(${quote(raw)})")
+
+        /** 네트워크 파서: 요청 본문 분석 결과 (JSON). */
+        fun parseRequestBody(kind: String, text: String): String =
+            eval("__parseRequestBody(${quote(kind)}, ${quote(text)})")
+
+        /** URL 변경 유형 분류 결과 (JSON). */
+        fun classifyUrlChange(prev: String, next: String): String =
+            eval("__classifyUrlChange(${quote(prev)}, ${quote(next)})")
 
         /** 캡처된 관찰기 메시지 (JSON 파싱). */
         fun messages(): JSONArray = JSONArray(eval("JSON.stringify(__messages)"))

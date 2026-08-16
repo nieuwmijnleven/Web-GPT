@@ -4,8 +4,13 @@ import com.shortsmonitor.core.database.entity.BrowserProfileEntity
 import com.shortsmonitor.core.database.entity.ExposureEventEntity
 import com.shortsmonitor.core.database.entity.InsertionEventEntity
 import com.shortsmonitor.core.database.entity.ListSnapshotEntity
+import com.shortsmonitor.core.database.entity.NetworkObserverStateEntity
+import com.shortsmonitor.core.database.entity.NetworkSequenceEntity
+import com.shortsmonitor.core.database.entity.NetworkSequenceItemEntity
+import com.shortsmonitor.core.database.entity.NetworkVideoRequestEntity
 import com.shortsmonitor.core.database.entity.ObservedShortEntity
 import com.shortsmonitor.core.database.entity.ObservationSessionEntity
+import com.shortsmonitor.core.database.entity.SequenceLineageEntity
 import com.shortsmonitor.core.model.SnapshotChangeReason
 import org.json.JSONArray
 import org.json.JSONObject
@@ -22,6 +27,12 @@ data class SessionExportData(
     val exposures: List<ExposureEventEntity> = emptyList(),
     val snapshots: List<ListSnapshotEntity> = emptyList(),
     val events: List<InsertionEventEntity> = emptyList(),
+    // ===== v5 네트워크 시퀀스 분석 =====
+    val networkSequences: List<NetworkSequenceEntity> = emptyList(),
+    val sequenceItems: List<NetworkSequenceItemEntity> = emptyList(),
+    val videoRequests: List<NetworkVideoRequestEntity> = emptyList(),
+    val lineages: List<SequenceLineageEntity> = emptyList(),
+    val observerState: NetworkObserverStateEntity? = null,
 )
 
 /**
@@ -100,6 +111,20 @@ object SessionExportBuilder {
         root.put("events", JSONArray().apply {
             data.events.forEach { put(eventJson(it)) }
         })
+        // v5: 네트워크 시퀀스 분석 데이터 (민감 원문 없음).
+        root.put("networkSequences", JSONArray().apply {
+            data.networkSequences.forEach { put(networkSequenceJson(it)) }
+        })
+        root.put("sequenceItems", JSONArray().apply {
+            data.sequenceItems.forEach { put(sequenceItemJson(it)) }
+        })
+        root.put("videoRequests", JSONArray().apply {
+            data.videoRequests.forEach { put(videoRequestJson(it)) }
+        })
+        root.put("lineages", JSONArray().apply {
+            data.lineages.forEach { put(lineageJson(it)) }
+        })
+        data.observerState?.let { root.put("observerState", observerStateJson(it)) }
         root.put("history", historyJson(data.snapshots))
         return root
     }
@@ -196,6 +221,69 @@ object SessionExportBuilder {
         .put("userVerdict", event.userVerdict.name)
         .putOpt("userMemo", event.userMemo)
         .putOpt("evidence", event.evidenceJson?.let { runCatching { JSONObject(it) }.getOrNull() })
+        // v5: 근거 출처·네트워크 시퀀스·강화 증거.
+        .put("source", event.source.name)
+        .putOpt("networkBeforeSequenceId", event.networkBeforeSequenceId)
+        .putOpt("networkAfterSequenceId", event.networkAfterSequenceId)
+        .putOpt("strengthenedBy", event.strengthenedByJson?.let { runCatching { JSONArray(it) }.getOrNull() })
+
+    /** 네트워크 시퀀스 JSON. 민감 원문(continuation·추적 파라미터)은 해시만 포함한다. */
+    private fun networkSequenceJson(sequence: NetworkSequenceEntity): JSONObject = JSONObject()
+        .put("id", sequence.id)
+        .putOpt("correlationId", sequence.correlationId)
+        .put("createdAt", sequence.createdAt)
+        .putOpt("pageUrl", sequence.pageUrl)
+        .putOpt("currentVideoId", sequence.currentVideoId)
+        .put("entryContext", sequence.entryContext.name)
+        .putOpt("sequenceHash", sequence.sequenceHash)
+        .putOpt("continuationHash", sequence.continuationHash)
+        .putOpt("parserVersion", sequence.parserVersion)
+        .put("parseStatus", sequence.parseStatus.name)
+        .putOpt("warnings", sequence.warningsJson?.let { runCatching { JSONArray(it) }.getOrNull() })
+        .putOpt("lineageId", sequence.lineageId)
+
+    private fun sequenceItemJson(item: NetworkSequenceItemEntity): JSONObject = JSONObject()
+        .put("sequenceId", item.sequenceId)
+        .put("position", item.position)
+        .putOpt("videoId", item.videoId)
+        .put("entryKind", item.entryKind.name)
+        .putOpt("nonVideoKind", item.nonVideoKind)
+        .put("isCurrent", item.isCurrent)
+        .put("hasPlayerParams", item.hasPlayerParams)
+        .put("hasContinuation", item.hasContinuation)
+        .putOpt("trackingHash", item.trackingHash)
+        .putOpt("playerParamsHash", item.playerParamsHash)
+
+    private fun videoRequestJson(request: NetworkVideoRequestEntity): JSONObject = JSONObject()
+        .put("id", request.id)
+        .putOpt("videoId", request.videoId)
+        .put("requestKind", request.requestKind.name)
+        .put("requestedAt", request.requestedAt)
+        .putOpt("pageUrl", request.pageUrl)
+        .putOpt("sequenceId", request.sequenceId)
+        .putOpt("expectedPosition", request.expectedPosition)
+        .put("requestOrder", request.requestOrder)
+
+    private fun lineageJson(lineage: SequenceLineageEntity): JSONObject = JSONObject()
+        .put("id", lineage.id)
+        .put("fromSequenceId", lineage.fromSequenceId)
+        .put("toSequenceId", lineage.toSequenceId)
+        .put("relation", lineage.relation.name)
+        .putOpt("signals", lineage.signalsJson?.let { runCatching { JSONObject(it) }.getOrNull() })
+        .put("decidedAt", lineage.decidedAt)
+
+    private fun observerStateJson(state: NetworkObserverStateEntity): JSONObject = JSONObject()
+        .putOpt("installedAt", state.installedAt)
+        .put("documentStartSupported", state.documentStartSupported)
+        .put("missedInitialPossible", state.missedInitialPossible)
+        .put("restricted", state.restricted)
+        .putOpt("firstRequestAt", state.firstRequestAt)
+        .putOpt("lastSequenceRequestAt", state.lastSequenceRequestAt)
+        .putOpt("lastSequenceResponseAt", state.lastSequenceResponseAt)
+        .put("lastSequenceVideoCount", state.lastSequenceVideoCount)
+        .put("lastParseStatus", state.lastParseStatus.name)
+        .putOpt("currentLineage", state.currentLineage)
+        .putOpt("warnings", state.warningsJson?.let { runCatching { JSONArray(it) }.getOrNull() })
 
     /** 프로필 변경·초기화 이력. 스냅샷의 변경 사유에서 파생한다. */
     private fun historyJson(snapshots: List<ListSnapshotEntity>): JSONObject {

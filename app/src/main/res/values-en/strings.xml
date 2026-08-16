@@ -160,6 +160,7 @@ Detection results are observed list-change clues and do not confirm the platform
     <string name="events_error_message">Could not load suspected events.</string>
     <string name="auto_verdict_candidate">Candidate</string>
     <string name="auto_verdict_confirmed">Confirmed</string>
+    <string name="auto_verdict_unknown">Pending</string>
     <string name="auto_verdict_invalidated">Invalidated</string>
     <string name="verdict_pending">Pending</string>
     <string name="verdict_suspected">Keep suspected</string>

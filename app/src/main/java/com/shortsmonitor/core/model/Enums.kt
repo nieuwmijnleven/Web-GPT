@@ -36,10 +36,17 @@ enum class SnapshotChangeReason {
     FULL_RELOAD,
 }
 
-/** 중간 삽입 의심 자동 판정 */
+/**
+ * 중간 삽입 의심 자동 판정.
+ * - CANDIDATE: 후보 (네트워크 증거로 확정 전)
+ * - CONFIRMED: 확정 (네트워크 증거 조합으로 확정)
+ * - UNKNOWN: 보류 (네트워크 데이터 없음 또는 계보 불명확 — 자동 확정하지 않음)
+ * - INVALIDATED: 무효화 (관계 소멸 등)
+ */
 enum class AutoVerdict {
     CANDIDATE,
     CONFIRMED,
+    UNKNOWN,
     INVALIDATED,
 }
 

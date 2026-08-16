@@ -50,4 +50,10 @@ class AppDatabaseMigrationTest {
         helper.createDatabase(testDb, 3).apply { close() }
         helper.runMigrationsAndValidate(testDb, 4, true, *AppDatabase.ALL_MIGRATIONS)
     }
+
+    @Test
+    fun migrateToV5_addsNetworkObservationTables() {
+        helper.createDatabase(testDb, 4).apply { close() }
+        helper.runMigrationsAndValidate(testDb, 5, true, *AppDatabase.ALL_MIGRATIONS)
+    }
 }

@@ -34,12 +34,24 @@ object SessionExportLoader {
         database: AppDatabase,
         session: ObservationSessionEntity,
         profile: BrowserProfileEntity?,
-    ): SessionExportData = SessionExportData(
-        session = session,
-        profile = profile,
-        shorts = database.observedShortDao().getBySession(session.id),
-        exposures = database.exposureEventDao().getBySession(session.id),
-        snapshots = database.listSnapshotDao().getBySession(session.id),
-        events = database.insertionEventDao().getBySession(session.id),
-    )
+    ): SessionExportData {
+        // v5: 네트워크 시퀀스 분석 데이터. 민감 원문은 저장되지 않으므로 내보내기에도 없다.
+        val sequences = database.networkSequenceDao().getBySession(session.id)
+        val sequenceItems = sequences.flatMap { sequence ->
+            database.networkSequenceItemDao().getBySequence(sequence.id)
+        }
+        return SessionExportData(
+            session = session,
+            profile = profile,
+            shorts = database.observedShortDao().getBySession(session.id),
+            exposures = database.exposureEventDao().getBySession(session.id),
+            snapshots = database.listSnapshotDao().getBySession(session.id),
+            events = database.insertionEventDao().getBySession(session.id),
+            networkSequences = sequences,
+            sequenceItems = sequenceItems,
+            videoRequests = database.networkVideoRequestDao().getBySession(session.id),
+            lineages = database.sequenceLineageDao().getBySession(session.id),
+            observerState = database.networkObserverStateDao().getBySession(session.id),
+        )
+    }
 }

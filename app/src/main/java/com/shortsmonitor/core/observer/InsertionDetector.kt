@@ -53,6 +53,13 @@ class InsertionDetector {
     private val pendingCandidates = mutableMapOf<CandidateKey, PendingCandidate>()
     private val confirmedKeys = mutableSetOf<CandidateKey>()
 
+    /** 안정화 대기 중인 후보가 있는지. 네이티브 시간 기반 안정화 주기 판단에 사용한다. */
+    val hasPendingCandidates: Boolean get() = pendingCandidates.isNotEmpty()
+
+    /** 마지막으로 등록된 후보의 감지 시각. 없으면 null. */
+    val lastPendingCandidateAt: Long?
+        get() = pendingCandidates.values.maxOfOrNull { it.detectedAt }
+
     /**
      * 새 목록 스냅샷을 처리하고 이번 스냅샷에서 확정된 의심 이벤트를 반환한다.
      *
@@ -154,6 +161,46 @@ class InsertionDetector {
             }
         }
 
+        return events
+    }
+
+    /**
+     * 네이티브 시간 기반 안정화 확인.
+     *
+     * 기존 문제: 신규 항목이 발견된 스냅샷에서 후보를 등록하지만, 이후 목록 키가
+     * 같으면 JavaScript가 스냅샷을 다시 보내지 않아 안정화 확인이 실행되지 않을 수 있다.
+     * 네이티브 계층이 주기적으로 이 메서드를 호출해 마지막 목록으로 안정화를 재확인한다.
+     */
+    fun stabilizePending(sessionId: Long, ts: Long, snapshotId: Long? = null): List<DetectedInsertion> {
+        val current = previousList ?: return emptyList()
+        val events = mutableListOf<DetectedInsertion>()
+        val iterator = pendingCandidates.entries.iterator()
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            val key = entry.key
+            val candidate = entry.value
+            if (!isRelationMaintained(current, key)) {
+                iterator.remove()
+                continue
+            }
+            val observed = candidate.observedCount + 1
+            if (observed >= STABILIZE_COUNT) {
+                iterator.remove()
+                confirmedKeys += key
+                events += DetectedInsertion(
+                    sessionId = sessionId,
+                    newVideoId = key.newVideoId,
+                    prevVideoId = key.prevVideoId,
+                    nextVideoId = key.nextVideoId,
+                    beforeSnapshotId = candidate.beforeSnapshotId,
+                    afterSnapshotId = candidate.afterSnapshotId,
+                    detectedAt = candidate.detectedAt,
+                    evidence = InsertionEvidence.confirmed(),
+                )
+            } else {
+                entry.setValue(candidate.copy(observedCount = observed))
+            }
+        }
         return events
     }
 

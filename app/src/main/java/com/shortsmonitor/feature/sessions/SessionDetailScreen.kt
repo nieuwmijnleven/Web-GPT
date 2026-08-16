@@ -38,8 +38,13 @@ import com.shortsmonitor.app.ShortsMonitorApplication
 import com.shortsmonitor.core.database.entity.ExposureEventEntity
 import com.shortsmonitor.core.database.entity.InsertionEventEntity
 import com.shortsmonitor.core.database.entity.ListSnapshotEntity
+import com.shortsmonitor.core.database.entity.NetworkObserverStateEntity
+import com.shortsmonitor.core.database.entity.NetworkSequenceEntity
+import com.shortsmonitor.core.database.entity.NetworkSequenceItemEntity
+import com.shortsmonitor.core.database.entity.NetworkVideoRequestEntity
 import com.shortsmonitor.core.database.entity.ObservedShortEntity
 import com.shortsmonitor.core.database.entity.ObservationSessionEntity
+import com.shortsmonitor.core.database.entity.SequenceLineageEntity
 import com.shortsmonitor.core.design.StatusNormal
 import com.shortsmonitor.core.design.components.ConfirmationSheet
 import com.shortsmonitor.core.design.components.EmptyState
@@ -53,11 +58,13 @@ import com.shortsmonitor.core.export.ExportFileWriter
 import com.shortsmonitor.core.export.SessionExportBuilder
 import com.shortsmonitor.core.export.SessionExportLoader
 import com.shortsmonitor.core.logging.ShortsLog
+import com.shortsmonitor.core.model.AutoVerdict
 import com.shortsmonitor.core.model.SessionStatus
 import com.shortsmonitor.core.model.ShortsError
 import com.shortsmonitor.core.model.SnapshotChangeReason
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import java.text.SimpleDateFormat
@@ -74,6 +81,12 @@ private data class SessionDetailUiState(
     val exposures: List<ExposureEventEntity> = emptyList(),
     val snapshots: List<ListSnapshotEntity> = emptyList(),
     val events: List<InsertionEventEntity> = emptyList(),
+    // v5: 네트워크 시퀀스 분석.
+    val networkSequences: List<NetworkSequenceEntity> = emptyList(),
+    val sequenceItems: Map<Long, List<NetworkSequenceItemEntity>> = emptyMap(),
+    val videoRequests: List<NetworkVideoRequestEntity> = emptyList(),
+    val lineages: List<SequenceLineageEntity> = emptyList(),
+    val observerState: NetworkObserverStateEntity? = null,
 )
 
 private sealed interface SessionDetailLoadState {
@@ -167,18 +180,32 @@ fun SessionDetailScreen(
     ) {
         try {
             combine(
-                database.observationSessionDao().observeById(sessionId),
-                database.observedShortDao().observeBySession(sessionId),
-                database.exposureEventDao().observeBySession(sessionId),
-                database.listSnapshotDao().observeBySession(sessionId),
-                database.insertionEventDao().observeBySession(sessionId),
-            ) { session, shorts, exposures, snapshots, events ->
+                listOf(
+                    database.observationSessionDao().observeById(sessionId),
+                    database.observedShortDao().observeBySession(sessionId),
+                    database.exposureEventDao().observeBySession(sessionId),
+                    database.listSnapshotDao().observeBySession(sessionId),
+                    database.insertionEventDao().observeBySession(sessionId),
+                    database.networkSequenceDao().observeBySession(sessionId),
+                    database.networkVideoRequestDao().observeBySession(sessionId),
+                    database.sequenceLineageDao().observeBySession(sessionId),
+                    database.networkObserverStateDao().observeBySession(sessionId),
+                ),
+            ) { values ->
+                @Suppress("UNCHECKED_CAST")
                 SessionDetailUiState(
-                    session = session,
-                    shorts = shorts,
-                    exposures = exposures,
-                    snapshots = snapshots,
-                    events = events,
+                    session = values[0] as ObservationSessionEntity?,
+                    shorts = values[1] as List<ObservedShortEntity>,
+                    exposures = values[2] as List<ExposureEventEntity>,
+                    snapshots = values[3] as List<ListSnapshotEntity>,
+                    events = values[4] as List<InsertionEventEntity>,
+                    networkSequences = values[5] as List<NetworkSequenceEntity>,
+                    sequenceItems = (values[5] as List<NetworkSequenceEntity>).associate {
+                        it.id to database.networkSequenceItemDao().observeBySequence(it.id).first()
+                    },
+                    videoRequests = values[6] as List<NetworkVideoRequestEntity>,
+                    lineages = values[7] as List<SequenceLineageEntity>,
+                    observerState = values[8] as NetworkObserverStateEntity?,
                 )
             }.collect { ui ->
                 value = if (ui.session == null) {
@@ -272,6 +299,8 @@ private fun SessionDetailContent(
     modifier: Modifier = Modifier,
 ) {
     val shortsById = ui.shorts.associateBy { it.videoId }
+    val parseIssueInitialMissed = stringResource(R.string.session_detail_initial_missed)
+    val parseIssueRestricted = stringResource(R.string.session_detail_restricted)
 
     LazyColumn(
         modifier = modifier,
@@ -316,14 +345,159 @@ private fun SessionDetailContent(
         }
 
         item {
-            SectionHeader(stringResource(R.string.session_detail_events))
+            SectionHeader(stringResource(R.string.session_detail_network_sequences))
         }
-        if (ui.events.isEmpty()) {
+        item {
+            Text(
+                text = stringResource(R.string.session_detail_network_sequences_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (ui.networkSequences.isEmpty()) {
             item {
-                EmptyState(title = stringResource(R.string.session_detail_no_events))
+                EmptyState(title = stringResource(R.string.session_detail_no_network_sequences))
             }
         } else {
-            items(ui.events, key = { it.id }) { event ->
+            items(ui.networkSequences, key = { it.id }) { sequence ->
+                NetworkSequenceCard(
+                    sequence = sequence,
+                    items = ui.sequenceItems[sequence.id].orEmpty(),
+                    shortsById = shortsById,
+                    lineage = ui.lineages.firstOrNull { it.toSequenceId == sequence.id },
+                )
+            }
+        }
+
+        item {
+            SectionHeader(stringResource(R.string.session_detail_network_requests))
+        }
+        item {
+            Text(
+                text = stringResource(R.string.session_detail_network_requests_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (ui.videoRequests.isEmpty()) {
+            item {
+                EmptyState(title = stringResource(R.string.session_detail_no_network_requests))
+            }
+        } else {
+            items(ui.videoRequests, key = { it.id }) { request ->
+                VideoRequestRow(request = request, title = request.videoId?.let { shortsById[it]?.title })
+            }
+        }
+
+        item {
+            SectionHeader(stringResource(R.string.session_detail_observer_state))
+        }
+        val observerState = ui.observerState
+        if (observerState == null) {
+            item {
+                EmptyState(title = stringResource(R.string.session_detail_no_observer_state))
+            }
+        } else {
+            item {
+                ObserverStateCard(state = observerState)
+            }
+        }
+
+        item {
+            SectionHeader(stringResource(R.string.session_detail_parse_failed))
+        }
+        val parseIssues = buildList {
+            ui.networkSequences.filter { it.parseStatus != com.shortsmonitor.core.model.SequenceParseStatus.PARSED }.forEach {
+                add("${formatTimestamp(it.createdAt)}: ${it.parseStatus.name} ${it.warningsJson.orEmpty()}")
+            }
+            if (observerState?.missedInitialPossible == true) {
+                add(parseIssueInitialMissed)
+            }
+            if (observerState?.restricted == true) {
+                add(parseIssueRestricted)
+            }
+        }
+        if (parseIssues.isEmpty()) {
+            item {
+                EmptyState(title = stringResource(R.string.session_detail_no_parse_issues))
+            }
+        } else {
+            items(parseIssues) { issue ->
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                ) {
+                    Text(
+                        text = issue,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = com.shortsmonitor.core.design.StatusError,
+                        modifier = Modifier.padding(12.dp),
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+
+        // 삽입 후보 / 확정 삽입 / 판정 보류 / 기타를 구분해 표시한다.
+        val candidates = ui.events.filter { it.autoVerdict == AutoVerdict.CANDIDATE }
+        val confirmed = ui.events.filter { it.autoVerdict == AutoVerdict.CONFIRMED }
+        val pending = ui.events.filter { it.autoVerdict == AutoVerdict.UNKNOWN }
+        val other = ui.events.filter {
+            it.autoVerdict != AutoVerdict.CANDIDATE &&
+                it.autoVerdict != AutoVerdict.CONFIRMED &&
+                it.autoVerdict != AutoVerdict.UNKNOWN
+        }
+
+        item {
+            SectionHeader(stringResource(R.string.session_detail_events_candidates))
+        }
+        if (candidates.isEmpty()) {
+            item {
+                EmptyState(title = stringResource(R.string.session_detail_no_candidates))
+            }
+        } else {
+            items(candidates, key = { it.id }) { event ->
+                EventRow(event = event, title = shortsById[event.newVideoId]?.title)
+            }
+        }
+
+        item {
+            SectionHeader(stringResource(R.string.session_detail_events_confirmed))
+        }
+        if (confirmed.isEmpty()) {
+            item {
+                EmptyState(title = stringResource(R.string.session_detail_no_confirmed))
+            }
+        } else {
+            items(confirmed, key = { it.id }) { event ->
+                EventRow(event = event, title = shortsById[event.newVideoId]?.title)
+            }
+        }
+
+        item {
+            SectionHeader(stringResource(R.string.session_detail_events_pending))
+        }
+        if (pending.isEmpty()) {
+            item {
+                EmptyState(title = stringResource(R.string.session_detail_no_pending))
+            }
+        } else {
+            items(pending, key = { it.id }) { event ->
+                EventRow(event = event, title = shortsById[event.newVideoId]?.title)
+            }
+        }
+
+        item {
+            SectionHeader(stringResource(R.string.session_detail_events_other))
+        }
+        if (other.isEmpty()) {
+            item {
+                EmptyState(title = stringResource(R.string.session_detail_no_other_events))
+            }
+        } else {
+            items(other, key = { it.id }) { event ->
                 EventRow(event = event, title = shortsById[event.newVideoId]?.title)
             }
         }
@@ -704,6 +878,166 @@ private fun ExportFormatSheet(
             }
         },
     )
+}
+
+/** 서버가 전달한 시퀀스 카드. 영상 순서·파싱 상태·계보를 표시한다. */
+@Composable
+private fun NetworkSequenceCard(
+    sequence: NetworkSequenceEntity,
+    items: List<NetworkSequenceItemEntity>,
+    shortsById: Map<String, ObservedShortEntity>,
+    lineage: SequenceLineageEntity?,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = formatTimestamp(sequence.createdAt),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.weight(1f))
+                StatusChip(
+                    label = lineage?.relation?.name ?: sequence.parseStatus.name,
+                    statusColor = if (lineage?.relation == com.shortsmonitor.core.model.SequenceLineageRelation.SAME_FLOW) {
+                        com.shortsmonitor.core.design.StatusNormal
+                    } else {
+                        com.shortsmonitor.core.design.StatusPending
+                    },
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = stringResource(
+                    R.string.session_detail_sequence_meta,
+                    sequence.parseStatus.name,
+                    sequence.entryContext.name,
+                    items.size,
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (items.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                items.forEach { item ->
+                    val title = item.videoId?.let { shortsById[it]?.title } ?: "(비영상: ${item.nonVideoKind ?: "?"})"
+                    Text(
+                        text = "${item.position + 1}. $title",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (item.isCurrent) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** 실제 영상 요청 순서 한 줄. 요청 종류·예상 위치와 대조 결과를 표시한다. */
+@Composable
+private fun VideoRequestRow(
+    request: NetworkVideoRequestEntity,
+    title: String?,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = request.requestOrder.toString(),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.padding(start = 12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title ?: request.videoId ?: "-",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = "${request.requestKind.name} · 예상 위치 ${request.expectedPosition?.plus(1) ?: "-"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
+/** 네트워크 관찰 상태 카드. 설치·누락·제한 상태를 표시한다. */
+@Composable
+private fun ObserverStateCard(
+    state: NetworkObserverStateEntity,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            if (state.restricted) {
+                Text(
+                    text = stringResource(R.string.session_detail_restricted),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = com.shortsmonitor.core.design.StatusError,
+                )
+                Spacer(Modifier.height(4.dp))
+            }
+            if (state.missedInitialPossible) {
+                Text(
+                    text = stringResource(R.string.session_detail_initial_missed),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = com.shortsmonitor.core.design.StatusSuspected,
+                )
+                Spacer(Modifier.height(4.dp))
+            }
+            SummaryLine(
+                label = stringResource(R.string.diagnostics_doc_start),
+                value = if (state.documentStartSupported) "예" else "아니오",
+            )
+            SummaryLine(
+                label = stringResource(R.string.diagnostics_last_sequence_videos),
+                value = state.lastSequenceVideoCount.toString(),
+            )
+            SummaryLine(
+                label = stringResource(R.string.diagnostics_sequence_parse_status),
+                value = state.lastParseStatus.name,
+            )
+            if (!state.warningsJson.isNullOrBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.session_detail_warnings) + ": " + state.warningsJson,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
 }
 
 private fun formatDuration(session: ObservationSessionEntity): String {

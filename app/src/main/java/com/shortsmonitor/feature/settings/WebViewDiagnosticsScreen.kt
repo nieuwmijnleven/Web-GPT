@@ -19,9 +19,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -30,11 +32,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.webkit.WebViewFeature
+import com.shortsmonitor.app.BuildConfig
 import com.shortsmonitor.app.R
 import com.shortsmonitor.app.ShortsMonitorApplication
 import com.shortsmonitor.core.design.components.OutlinedActionButton
 import com.shortsmonitor.core.design.components.ShortsMonitorTopBar
+import com.shortsmonitor.core.model.SequenceLineageRelation
+import com.shortsmonitor.core.model.SequenceParseStatus
 import com.shortsmonitor.core.observer.ObserverDiagnostics
+import com.shortsmonitor.core.export.ExportFileWriter
+import com.shortsmonitor.core.export.NetworkDiagnosticsExporter
+import com.shortsmonitor.core.logging.ShortsLog
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -58,16 +67,68 @@ fun WebViewDiagnosticsScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val database = remember {
         (context.applicationContext as ShortsMonitorApplication).database
     }
     var copied by remember { mutableStateOf(false) }
+    var exportResult by remember { mutableStateOf<String?>(null) }
+    var pendingExportSessionId by remember { mutableStateOf<Long?>(null) }
+    // 개발 빌드 진단 모드: 저장 위치 선택 후 내보내기.
+    val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        if (uri != null && pendingExportSessionId != null) {
+            scope.launch {
+                exportResult = try {
+                    val content = NetworkDiagnosticsExporter.export(database, pendingExportSessionId!!)
+                    val error = ExportFileWriter.write(context, uri, content)
+                    pendingExportSessionId = null
+                    if (error == null) {
+                        context.getString(R.string.diagnostics_export_done)
+                    } else {
+                        context.getString(R.string.diagnostics_export_failed)
+                    }
+                } catch (e: Exception) {
+                    ShortsLog.e("Diagnostics export failed", e)
+                    context.getString(R.string.diagnostics_export_failed)
+                }
+            }
+        }
+    }
 
     val profiles by database.browserProfileDao().observeAll()
         .collectAsStateWithLifecycle(initialValue = emptyList())
 
-    val items = remember(profiles) {
-        buildDiagnostics(context, profiles.maxByOrNull { it.lastUsedAt ?: 0L }?.name)
+    // 활성(최근) 세션의 네트워크 관찰 상태·이벤트 집계 (진단용).
+    var dbState by remember { mutableStateOf("") }
+    var pendingCount by remember { mutableStateOf(0L) }
+    var confirmedCount by remember { mutableStateOf(0L) }
+    LaunchedEffect(database) {
+        val state = database.networkObserverStateDao().getLatest()
+        val sessionId = state?.sessionId
+        dbState = state?.let { st ->
+            buildList {
+                add("installed=" + (st.installedAt ?: 0L))
+                add("firstRequest=" + (st.firstRequestAt ?: 0L))
+                add("restricted=" + st.restricted)
+            }.joinToString(", ")
+        } ?: ""
+        if (sessionId != null) {
+            val counts = database.insertionEventDao().countByVerdict(sessionId)
+            pendingCount = counts.firstOrNull { it.verdict == "CANDIDATE" }?.cnt ?: 0L
+            confirmedCount = counts.firstOrNull { it.verdict == "CONFIRMED" }?.cnt ?: 0L
+        }
+    }
+
+    val items = remember(profiles, dbState, pendingCount, confirmedCount) {
+        buildDiagnostics(
+            context = context,
+            activeProfileName = profiles.maxByOrNull { it.lastUsedAt ?: 0L }?.name,
+            dbState = dbState,
+            pendingCount = pendingCount,
+            confirmedCount = confirmedCount,
+        )
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -105,6 +166,34 @@ fun WebViewDiagnosticsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                // 개발 빌드 전용 진단 모드: 실제 검증용 네트워크 진단 파일 내보내기.
+                if (BuildConfig.DEBUG) {
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedActionButton(
+                        text = stringResource(R.string.diagnostics_export_debug),
+                        onClick = {
+                            exportResult = null
+                            scope.launch {
+                                val state = database.networkObserverStateDao().getLatest()
+                                if (state == null) {
+                                    exportResult = context.getString(R.string.diagnostics_export_no_session)
+                                } else {
+                                    pendingExportSessionId = state.sessionId
+                                    exportLauncher.launch(NetworkDiagnosticsExporter.FILE_NAME)
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    exportResult?.let {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
             item { Spacer(Modifier.height(8.dp)) }
         }
@@ -140,9 +229,17 @@ private fun DiagnosticsRow(
     }
 }
 
-private fun buildDiagnostics(context: Context, activeProfileName: String?): List<DiagnosticsItem> {
+private fun buildDiagnostics(
+    context: Context,
+    activeProfileName: String?,
+    dbState: String,
+    pendingCount: Long,
+    confirmedCount: Long,
+): List<DiagnosticsItem> {
     val unknown = context.getString(R.string.diagnostics_unknown)
     val none = context.getString(R.string.diagnostics_none)
+    val yes = context.getString(R.string.diagnostics_yes)
+    val no = context.getString(R.string.diagnostics_no)
     val webViewPackage = runCatching { WebView.getCurrentWebViewPackage() }.getOrNull()
 
     val supportedFeatures = listOf(
@@ -162,6 +259,35 @@ private fun buildDiagnostics(context: Context, activeProfileName: String?): List
         lastHeartbeat <= 0L -> context.getString(R.string.diagnostics_observer_none)
         else -> context.getString(R.string.diagnostics_observer_stopped)
     }
+
+    fun time(value: Long): String = if (value <= 0L) {
+        none
+    } else {
+        SimpleDateFormat("M/d HH:mm:ss", Locale.getDefault()).format(Date(value))
+    }
+
+    val networkStatus = when {
+        ObserverDiagnostics.networkObserverInstalledAtMs <= 0L ->
+            context.getString(R.string.diagnostics_observer_none)
+        ObserverDiagnostics.missedInitialPossible ->
+            context.getString(R.string.network_observer_limited)
+        else -> context.getString(R.string.network_observer_ready)
+    }
+    val parseStatus = when (ObserverDiagnostics.lastSequenceParseStatus) {
+        SequenceParseStatus.PARSED -> context.getString(R.string.parse_status_parsed)
+        SequenceParseStatus.PARTIAL -> context.getString(R.string.parse_status_partial)
+        SequenceParseStatus.FAILED -> context.getString(R.string.parse_status_failed)
+        SequenceParseStatus.UNSUPPORTED -> context.getString(R.string.parse_status_unsupported)
+        SequenceParseStatus.NONE -> context.getString(R.string.parse_status_none)
+    }
+    val lineage = when (ObserverDiagnostics.currentLineage) {
+        SequenceLineageRelation.SAME_FLOW -> context.getString(R.string.lineage_same_flow)
+        SequenceLineageRelation.NEW_CONTEXT -> context.getString(R.string.lineage_new_context)
+        SequenceLineageRelation.UNKNOWN -> context.getString(R.string.lineage_unknown)
+        SequenceLineageRelation.NONE -> context.getString(R.string.lineage_none)
+    }
+    val mismatch = (ObserverDiagnostics.lastDomVideoCount - ObserverDiagnostics.lastSequenceVideoCount)
+        .coerceAtLeast(0)
 
     return listOf(
         DiagnosticsItem(
@@ -192,15 +318,96 @@ private fun buildDiagnostics(context: Context, activeProfileName: String?): List
         ),
         DiagnosticsItem(
             label = context.getString(R.string.diagnostics_last_heartbeat),
-            value = if (lastHeartbeat <= 0L) {
+            value = time(lastHeartbeat),
+        ),
+        DiagnosticsItem(
+            label = context.getString(R.string.diagnostics_doc_start),
+            value = if (ObserverDiagnostics.documentStartSupported) yes else no,
+        ),
+        DiagnosticsItem(
+            label = context.getString(R.string.diagnostics_network_observer),
+            value = networkStatus,
+        ),
+        DiagnosticsItem(
+            label = context.getString(R.string.diagnostics_network_installed_at),
+            value = time(ObserverDiagnostics.networkObserverInstalledAtMs),
+        ),
+        DiagnosticsItem(
+            label = context.getString(R.string.diagnostics_first_sequence_request),
+            value = time(ObserverDiagnostics.firstSequenceRequestAtMs),
+        ),
+        DiagnosticsItem(
+            label = context.getString(R.string.diagnostics_last_sequence_request),
+            value = time(ObserverDiagnostics.lastSequenceRequestAtMs),
+        ),
+        DiagnosticsItem(
+            label = context.getString(R.string.diagnostics_last_sequence_response),
+            value = time(ObserverDiagnostics.lastSequenceResponseAtMs),
+        ),
+        DiagnosticsItem(
+            label = context.getString(R.string.diagnostics_last_sequence_videos),
+            value = ObserverDiagnostics.lastSequenceVideoCount.toString(),
+        ),
+        DiagnosticsItem(
+            label = context.getString(R.string.diagnostics_sequence_parse_status),
+            value = parseStatus,
+        ),
+        DiagnosticsItem(
+            label = context.getString(R.string.diagnostics_current_lineage),
+            value = lineage,
+        ),
+        DiagnosticsItem(
+            label = context.getString(R.string.diagnostics_initial_missed),
+            value = if (ObserverDiagnostics.missedInitialPossible) yes else no,
+        ),
+        DiagnosticsItem(
+            label = context.getString(R.string.diagnostics_dom_videos),
+            value = ObserverDiagnostics.lastDomVideoCount.toString(),
+        ),
+        DiagnosticsItem(
+            label = context.getString(R.string.diagnostics_network_videos),
+            value = ObserverDiagnostics.lastSequenceVideoCount.toString(),
+        ),
+        DiagnosticsItem(
+            label = context.getString(R.string.diagnostics_dom_network_mismatch),
+            value = mismatch.toString(),
+        ),
+        DiagnosticsItem(
+            label = context.getString(R.string.diagnostics_active_video),
+            value = if (ObserverDiagnostics.lastDomListHash.isBlank()) {
                 none
             } else {
-                SimpleDateFormat("M/d HH:mm:ss", Locale.getDefault()).format(Date(lastHeartbeat))
+                ObserverDiagnostics.lastNetworkRequestVideoId.ifBlank { "(DOM)" }
             },
+        ),
+        DiagnosticsItem(
+            label = context.getString(R.string.diagnostics_recent_request_video),
+            value = ObserverDiagnostics.lastNetworkRequestVideoId.ifBlank { none },
+        ),
+        DiagnosticsItem(
+            label = context.getString(R.string.diagnostics_pending_candidates),
+            value = pendingCount.toString(),
+        ),
+        DiagnosticsItem(
+            label = context.getString(R.string.diagnostics_confirmed_events),
+            value = confirmedCount.toString(),
+        ),
+        DiagnosticsItem(
+            label = context.getString(R.string.diagnostics_parse_warnings),
+            value = ObserverDiagnostics.recentParseWarnings.joinToString(", ").ifBlank { none },
+        ),
+        DiagnosticsItem(
+            label = context.getString(R.string.diagnostics_selector_stats),
+            value = ObserverDiagnostics.lastSelectorStats ?: none,
         ),
         DiagnosticsItem(
             label = context.getString(R.string.diagnostics_last_dom_error),
             value = ObserverDiagnostics.lastDomError ?: none,
         ),
+        DiagnosticsItem(
+            label = context.getString(R.string.diagnostics_restricted),
+            value = dbState.ifBlank { none },
+        ),
     )
 }
+
