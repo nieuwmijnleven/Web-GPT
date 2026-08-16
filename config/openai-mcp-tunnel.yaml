@@ -11,4 +11,4 @@ log:
 mcp:
   server_urls:
     - channel: main
-      url: "http://127.0.0.1:9191/mcp"
+      url: "http://127.0.0.1:9292/mcp"

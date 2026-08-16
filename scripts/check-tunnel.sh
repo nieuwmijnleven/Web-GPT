@@ -18,4 +18,4 @@ if [[ -z "${OPENAI_TUNNEL_ID:-}" || -z "${OPENAI_TUNNEL_RUNTIME_KEY:-}" ]]; then
 fi
 
 printf '%s\n' "tunnel-client: $(tunnel-client --version 2>/dev/null | head -n 1)"
-tunnel-client doctor --profile-file "$profile_file" --control-plane.tunnel-id "$OPENAI_TUNNEL_ID" --control-plane.api-key env:OPENAI_TUNNEL_RUNTIME_KEY --mcp.server-url "url=${DEVSPACE_MCP_URL:-http://127.0.0.1:9191/mcp},channel=main" --json
+tunnel-client doctor --profile-file "$profile_file" --control-plane.tunnel-id "$OPENAI_TUNNEL_ID" --control-plane.api-key env:OPENAI_TUNNEL_RUNTIME_KEY --mcp.server-url "url=${OPENAI_MCP_TUNNEL_TARGET_URL:-http://127.0.0.1:9292/mcp},channel=main" --health.listen-addr 127.0.0.1:0 --json

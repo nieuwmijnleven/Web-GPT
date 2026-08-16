@@ -4,7 +4,9 @@
 
 ```bash
 sudo systemctl --no-pager status devspace.service
+sudo systemctl --no-pager status devspace-oauth-gateway.service
 curl -fsS http://127.0.0.1:9191/healthz
+curl -fsS http://127.0.0.1:9292/healthz
 DEVSPACE_AUTH_FILE=/home/ivenewjeans25/.devspace/auth.json \
   DEVSPACE_TEST_ROOT=/home/ivenewjeans25/forum-for-democracy \
   scripts/check-devspace-mcp.sh
@@ -14,17 +16,18 @@ curl -fsS http://127.0.0.1:8080/healthz
 curl -fsS http://127.0.0.1:8080/readyz
 ```
 
-`readyz` is the meaningful tunnel check: it must show control-plane connectivity, local MCP reachability, authentication/discovery, and catalog readiness. A running process alone is not readiness.
+`healthz` confirms the tunnel process is live. With DevSpace OAuth enabled, `readyz` can return 503 because tunnel-client's own unauthenticated probe is rejected; this is expected and is not a reason to disable OAuth. Use `scripts/check-oauth-gateway.sh`, `sudo scripts/check-tunnel.sh`, and the ChatGPT OAuth scan for end-to-end readiness.
 
 ## Start, stop, and restart
 
 ```bash
 sudo systemctl restart devspace.service
+sudo systemctl restart devspace-oauth-gateway.service
 sudo systemctl restart openai-mcp-tunnel.service
 sudo systemctl stop openai-mcp-tunnel.service
 ```
 
-The tunnel unit requires DevSpace and restarts after a transient failure. Keep it running while scanning or invoking the ChatGPT app.
+The gateway requires DevSpace; the tunnel unit requires both. Keep all three running while scanning or invoking the ChatGPT app.
 
 ## Configuration changes
 
