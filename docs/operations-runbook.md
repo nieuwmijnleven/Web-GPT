@@ -16,7 +16,7 @@ curl -fsS http://127.0.0.1:8080/healthz
 curl -fsS http://127.0.0.1:8080/readyz
 ```
 
-`healthz` confirms the tunnel process is live. With DevSpace OAuth enabled, `readyz` can return 503 because tunnel-client's own unauthenticated probe is rejected; this is expected and is not a reason to disable OAuth. Use `scripts/check-oauth-gateway.sh`, `sudo scripts/check-tunnel.sh`, and the ChatGPT OAuth scan for end-to-end readiness.
+`healthz` confirms the tunnel process is live. With DevSpace OAuth enabled, `readyz` can return 503 because tunnel-client's own unauthenticated MCP probe is rejected; this is acceptable only when `/api/oauth` shows successful protected-resource and authorization-server discovery. If `/api/oauth` has no selected metadata, restart the tunnel after the gateway is listening. Use `scripts/check-oauth-gateway.sh`, `sudo scripts/check-tunnel.sh`, and the ChatGPT OAuth scan for end-to-end readiness.
 
 ## Start, stop, and restart
 

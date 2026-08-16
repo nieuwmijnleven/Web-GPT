@@ -4,13 +4,9 @@ import http from "node:http";
 import process from "node:process";
 
 const LOCAL_MCP_URL = process.env.DEVSPACE_MCP_URL || "http://127.0.0.1:9191/mcp";
-const PUBLIC_BASE_URL = resolvePublicBaseUrl();
 const LISTEN_ADDR = process.env.OAUTH_GATEWAY_LISTEN_ADDR || "127.0.0.1:9292";
 const LOCAL_MCP = parseHttpUrl(LOCAL_MCP_URL, "DEVSPACE_MCP_URL");
-const PUBLIC_BASE = parsePublicUrl(PUBLIC_BASE_URL);
 const LOCAL_RESOURCE_URL = LOCAL_MCP.href;
-const PUBLIC_RESOURCE_URL = PUBLIC_BASE.href;
-const PUBLIC_PROTECTED_RESOURCE_METADATA_URL = appendPath(PUBLIC_BASE, "/.well-known/oauth-protected-resource/mcp");
 const MAX_AUTH_BODY_BYTES = 256 * 1024;
 const HOP_BY_HOP_HEADERS = new Set([
   "connection",
@@ -22,27 +18,6 @@ const HOP_BY_HOP_HEADERS = new Set([
   "transfer-encoding",
   "upgrade",
 ]);
-
-const oauthMetadata = {
-  issuer: PUBLIC_RESOURCE_URL,
-  authorization_endpoint: appendPath(PUBLIC_BASE, "/authorize"),
-  response_types_supported: ["code"],
-  code_challenge_methods_supported: ["S256"],
-  token_endpoint: appendPath(PUBLIC_BASE, "/token"),
-  token_endpoint_auth_methods_supported: ["client_secret_post", "none"],
-  grant_types_supported: ["authorization_code", "refresh_token"],
-  scopes_supported: ["devspace"],
-  revocation_endpoint: appendPath(PUBLIC_BASE, "/revoke"),
-  revocation_endpoint_auth_methods_supported: ["client_secret_post"],
-  registration_endpoint: appendPath(PUBLIC_BASE, "/register"),
-};
-
-const protectedResourceMetadata = {
-  resource: PUBLIC_RESOURCE_URL,
-  authorization_servers: [PUBLIC_RESOURCE_URL],
-  scopes_supported: ["devspace"],
-  resource_name: "DevSpace",
-};
 
 const server = http.createServer((req, res) => {
   void handleRequest(req, res).catch((error) => {
@@ -66,7 +41,6 @@ server.listen(port, host, () => {
     event: "listening",
     address: `${host}:${port}`,
     localMcp: LOCAL_RESOURCE_URL,
-    publicBase: PUBLIC_RESOURCE_URL,
   });
 });
 
@@ -85,16 +59,6 @@ async function handleRequest(req, res) {
     return;
   }
 
-  if (isProtectedResourceMetadataPath(requestUrl.pathname) && ["GET", "HEAD"].includes(req.method)) {
-    sendJson(res, 200, protectedResourceMetadata, req.method === "HEAD");
-    return;
-  }
-
-  if (isAuthorizationServerMetadataPath(requestUrl.pathname) && ["GET", "HEAD"].includes(req.method)) {
-    sendJson(res, 200, oauthMetadata, req.method === "HEAD");
-    return;
-  }
-
   const shouldRewriteResource = ["/authorize", "/token", "/revoke"].includes(requestUrl.pathname);
   if (shouldRewriteResource && ["GET", "POST"].includes(req.method)) {
     const body = req.method === "POST" ? await readBody(req, MAX_AUTH_BODY_BYTES) : undefined;
@@ -109,20 +73,6 @@ async function handleRequest(req, res) {
   await proxyRequest(req, res, requestUrl);
 }
 
-function resolvePublicBaseUrl() {
-  const configured = process.env.OAUTH_GATEWAY_PUBLIC_BASE_URL || process.env.GATEWAY_PUBLIC_BASE_URL;
-  if (configured?.trim()) {
-    return configured.trim();
-  }
-  const tunnelId = process.env.OPENAI_TUNNEL_ID?.trim();
-  if (!tunnelId) {
-    throw new Error("OAUTH_GATEWAY_PUBLIC_BASE_URL or OPENAI_TUNNEL_ID is required");
-  }
-  const publicHost = process.env.OPENAI_TUNNEL_PUBLIC_HOST?.trim()
-    || "tunnel-service.gateway.unified-0.internal.api.openai.org";
-  return `https://${publicHost}/v1/mcp/${encodeURIComponent(tunnelId)}`;
-}
-
 function parseHttpUrl(value, name) {
   const url = new URL(value);
   if (url.protocol !== "http:") {
@@ -131,23 +81,6 @@ function parseHttpUrl(value, name) {
   url.hash = "";
   url.search = "";
   return url;
-}
-
-function parsePublicUrl(value) {
-  const url = new URL(value);
-  if (url.protocol !== "https:") {
-    throw new Error("OAUTH_GATEWAY_PUBLIC_BASE_URL must use https://");
-  }
-  if (url.search || url.hash) {
-    throw new Error("OAUTH_GATEWAY_PUBLIC_BASE_URL must not contain a query or fragment");
-  }
-  url.pathname = url.pathname.replace(/\/+$/, "");
-  return url;
-}
-
-function appendPath(base, suffix) {
-  const baseText = base.href.replace(/\/+$/, "");
-  return `${baseText}${suffix}`;
 }
 
 function parseListenAddress(value) {
@@ -171,15 +104,6 @@ function parsePort(value) {
     throw new Error(`Invalid gateway port: ${value}`);
   }
   return port;
-}
-
-function isProtectedResourceMetadataPath(pathname) {
-  return pathname === "/.well-known/oauth-protected-resource"
-    || pathname === "/.well-known/oauth-protected-resource/mcp";
-}
-
-function isAuthorizationServerMetadataPath(pathname) {
-  return pathname === "/.well-known/oauth-authorization-server";
 }
 
 function rewriteResourceInQuery(url) {
@@ -253,9 +177,6 @@ function proxyRequest(req, res, requestUrl, body) {
       headers,
     }, (upstreamResponse) => {
       const responseHeaders = copyResponseHeaders(upstreamResponse.headers);
-      if (upstreamResponse.statusCode === 401 && responseHeaders["www-authenticate"]) {
-        responseHeaders["www-authenticate"] = rewriteAuthenticateHeader(responseHeaders["www-authenticate"]);
-      }
       res.writeHead(upstreamResponse.statusCode || 502, responseHeaders);
       upstreamResponse.pipe(res);
       upstreamResponse.once("end", resolve);
@@ -286,14 +207,6 @@ function copyResponseHeaders(headers) {
     }
   }
   return copied;
-}
-
-function rewriteAuthenticateHeader(value) {
-  const values = Array.isArray(value) ? value : [value];
-  return values.map((entry) => entry.replace(
-    /https?:\/\/127\.0\.0\.1(?::\d+)?\/\.well-known\/oauth-protected-resource\/mcp/g,
-    PUBLIC_PROTECTED_RESOURCE_METADATA_URL,
-  )).join(", ");
 }
 
 function sendJson(res, status, value, headOnly = false) {

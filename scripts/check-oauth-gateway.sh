@@ -11,11 +11,14 @@ authorization=$(curl -fsS "$base_url/.well-known/oauth-authorization-server")
 grep -q '"ok":true' <<<"$health"
 grep -q '"authorization_servers"' <<<"$protected"
 grep -q '"authorization_endpoint"' <<<"$authorization"
+grep -q '"resource":"http://127.0.0.1:9191/mcp"' <<<"$protected"
+grep -q '"authorization_servers":\["http://127.0.0.1:9191/"\]' <<<"$protected"
 
 challenge=$(curl -sS -D - -o /dev/null "$base_url/mcp")
 grep -qi '401' <<<"$challenge"
 grep -qi 'oauth-protected-resource' <<<"$challenge"
+grep -Fqi 'resource_metadata="http://127.0.0.1:9191/.well-known/oauth-protected-resource/mcp"' <<<"$challenge"
 
 printf '%s\n' "gateway: healthy"
 printf '%s\n' "gateway: OAuth metadata available"
-printf '%s\n' "gateway: MCP challenge rewritten"
+printf '%s\n' "gateway: MCP challenge preserves upstream metadata"

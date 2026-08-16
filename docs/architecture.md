@@ -12,7 +12,7 @@ ChatGPT Business custom MCP app
   -> /home/ivenewjeans25/forum-for-democracy
 ```
 
-The gateway is loopback-only; it is not a public reverse proxy or a second MCP listener. It returns OAuth metadata with the OpenAI tunnel URL, proxies authorization/token/registration requests to DevSpace after translating the public resource URL to DevSpace's loopback resource, and forwards the resulting Bearer token to `/mcp`. It also rewrites DevSpace's loopback `WWW-Authenticate` metadata URL so the OAuth client can continue discovery through the tunnel.
+The gateway is loopback-only; it is not a public reverse proxy or a second MCP listener. It preserves DevSpace's protected-resource metadata, authorization-server metadata, and `WWW-Authenticate` challenge, proxies authorization/token/registration requests to DevSpace after translating the tunnel-facing `resource` parameter to DevSpace's loopback resource, and forwards the resulting Bearer token to `/mcp`. The OpenAI tunnel service owns tunnel-facing URL handling; the gateway does not fabricate a public OAuth issuer or rewrite discovery metadata.
 
 ## Installed state
 
@@ -21,7 +21,7 @@ The gateway is loopback-only; it is not a public reverse proxy or a second MCP l
 - npm registry metadata for 1.0.6 reports integrity `sha512-lLwUip5Wv1mwpEmAbpms7bourW5g0a0US1PDHCD2CITgCK6DnMTh5++6z8ODIEY+T30oxoTQlxdH4T+VkWlbNA==`; the installed package resolves to 1.0.6.
 - DevSpace service account: dedicated system user `devspace`; it has ACL access only to the configured workspace tree and read/execute access to the installed DevSpace package.
 - MCP bind: `127.0.0.1:9191/mcp`; the service public base URL remains `http://127.0.0.1:9191` for DevSpace's internal OAuth resource checks.
-- OAuth gateway bind: `127.0.0.1:9292/mcp`; its public base is derived from the configured OpenAI tunnel ID unless `OAUTH_GATEWAY_PUBLIC_BASE_URL` is set.
+- OAuth gateway bind: `127.0.0.1:9292/mcp`; it has no public listener or public-base configuration.
 - Tunnel client: official `openai/tunnel-client` Linux amd64 release v0.0.11. The release archive SHA-256 `29adfe5c1399dfb9fda9383f230c324355912f50dc36e2e416b1f1322317b3c4` was verified before extraction; the installed binary is `/usr/local/bin/tunnel-client`.
 - Services: `devspace.service`, `devspace-oauth-gateway.service`, and `openai-mcp-tunnel.service` are installed and ordered so the tunnel cannot start without the gateway.
 

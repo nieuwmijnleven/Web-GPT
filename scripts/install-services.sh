@@ -17,10 +17,10 @@ else
 fi
 sudo systemctl daemon-reload
 sudo systemctl enable --now devspace.service
-if sudo grep -Eq '^[[:space:]]*(OPENAI_TUNNEL_ID|OAUTH_GATEWAY_PUBLIC_BASE_URL)=[^[:space:]]' /etc/devspace/openai-mcp-tunnel.env; then
+if sudo grep -Eq '^[[:space:]]*OPENAI_TUNNEL_ID=[^[:space:]]' /etc/devspace/openai-mcp-tunnel.env; then
   sudo systemctl enable --now devspace-oauth-gateway.service
 else
-  printf '%s\n' "DevSpace enabled; OAuth gateway installed but not started because its public base is not configured."
+  printf '%s\n' "DevSpace enabled; OAuth gateway installed but not started because its tunnel ID is not configured."
 fi
 if sudo grep -Eq '^[[:space:]]*OPENAI_TUNNEL_ID=[^[:space:]]' /etc/devspace/openai-mcp-tunnel.env \
   && sudo grep -Eq '^[[:space:]]*OPENAI_TUNNEL_RUNTIME_KEY=[^[:space:]]' /etc/devspace/openai-mcp-tunnel.env; then

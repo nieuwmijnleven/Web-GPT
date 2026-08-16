@@ -12,6 +12,7 @@ Group=devspace
 WorkingDirectory=/var/lib/devspace
 Environment=HOME=/var/lib/devspace
 EnvironmentFile=/etc/devspace/openai-mcp-tunnel.env
+ExecStartPre=/usr/bin/curl --compressed --fail --silent --show-error --max-time 5 http://127.0.0.1:9292/healthz
 ExecStart=/usr/local/libexec/run-openai-mcp-tunnel
 Restart=on-failure
 RestartSec=5s

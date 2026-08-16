@@ -8,7 +8,7 @@ Use ChatGPT on the web as a Business workspace admin/owner. The current official
 
 1. Open **Workspace settings → Apps → Create**. Business admins/owners enable developer mode while creating the custom app; the user setting is **Settings → Apps → Advanced settings → Developer mode** when that entry is shown.
 2. Choose a custom MCP app and the **Tunnel** connection. Select the tunnel listed for the workspace, or enter the provisioned `OPENAI_TUNNEL_ID` when the UI offers that field.
-3. Use OAuth when prompted. The loopback gateway exposes protected-resource and authorization-server metadata through the selected tunnel and proxies DCR, PKCE, access tokens, and refresh tokens to DevSpace. Approve the DevSpace owner-password page only for this intended client.
+3. Use OAuth when prompted. The loopback gateway preserves DevSpace's protected-resource and authorization-server metadata through the selected tunnel, translates the tunnel-facing `resource` parameter, and proxies DCR, PKCE, access-token, and refresh-token requests to DevSpace. Approve the DevSpace owner-password page only for this intended client.
 4. Click **Scan Tools**. Confirm that all eight tools in `docs/devspace-capabilities.md` appear, that annotations are retained, and that no actions were silently omitted. If the tunnel is absent, verify the workspace association and the app creator’s `Tunnels Read + Use` permission.
 5. Click **Create**. The app should appear under **Workspace settings → Apps → Drafts** (or under **Settings → Apps → Enabled Apps** for the creator with a Dev label).
 
