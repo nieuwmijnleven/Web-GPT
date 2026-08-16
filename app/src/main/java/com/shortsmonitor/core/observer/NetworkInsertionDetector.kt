@@ -88,8 +88,20 @@ class NetworkInsertionDetector {
     private val pending = mutableMapOf<CandidateKey, PendingCandidate>()
     private val confirmedKeys = mutableSetOf<CandidateKey>()
 
+    /**
+     * 삽입 분석 제한 여부.
+     * 초기 시퀀스를 놓친 세션(문서 시작 주입 미지원, 관찰기 설치 전 요청 등)은
+     * 확정 조건을 충족해도 확정하지 않는다. 후보 등록은 허용하되 신뢰도를 낮춘다.
+     */
+    private var restricted = false
+
     /** 대기 중인 후보가 있는지 (진단·안정화 주기 판단용). */
     val hasPendingCandidates: Boolean get() = pending.isNotEmpty()
+
+    /** 삽입 분석 제한 상태를 설정한다. 제한 중에는 [tryConfirm]이 확정을 내지 않는다. */
+    fun setRestricted(restricted: Boolean) {
+        this.restricted = restricted
+    }
 
     /** 기준이 교체된 뒤 첫 시퀀스는 비교하지 않는다. */
     fun resetBaseline() {
@@ -246,6 +258,8 @@ class NetworkInsertionDetector {
      * 강화 증거(player 요청·reel_item_watch 요청·DOM 활성 관찰)가 하나 이상 있을 때만 확정한다.
      */
     private fun tryConfirm(candidate: PendingCandidate, afterSequenceId: Long?): Outcome.Confirmed? {
+        // 초기 시퀀스 누락 등 삽입 분석이 제한된 세션에서는 확정하지 않는다.
+        if (restricted) return null
         val strengthened = candidate.strengthenedByPlayer ||
             candidate.strengthenedByReelItemWatch ||
             candidate.strengthenedByDomActive

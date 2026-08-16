@@ -187,6 +187,27 @@ class ObservationRecorderNetworkTest {
     }
 
     @Test
+    fun restrictedSession_neverConfirmsInsertion() = runBlocking {
+        // 문서 시작 주입 미지원 → 초기 시퀀스 누락 가능성 → 삽입 분석 제한.
+        ObserverDiagnostics.documentStartSupported = false
+        recorder.record(sessionId, sequenceResponse(ts = 100L, videoA, videoB))
+        // A→X→B: 후보 등록은 가능하지만
+        recorder.record(sessionId, sequenceResponse(ts = 200L, videoA, videoX, videoB))
+        // 후속 시퀀스에서 관계 유지 + 해당 영상 player 요청이 있어도 확정하지 않는다.
+        recorder.record(sessionId, sequenceResponse(ts = 300L, videoA, videoX, videoB))
+        recorder.record(sessionId, videoRequest(ts = 400L, videoX))
+
+        val events = database.insertionEventDao().getBySession(sessionId)
+        assertTrue(events.isNotEmpty())
+        assertTrue(events.none { it.autoVerdict == AutoVerdict.CONFIRMED })
+
+        val state = database.networkObserverStateDao().getBySession(sessionId)
+        assertNotNull(state)
+        assertTrue(state!!.restricted)
+        assertTrue(state.missedInitialPossible)
+    }
+
+    @Test
     fun networkInsertion_endAddition_isNotRegistered() = runBlocking {
         recorder.record(sessionId, sequenceResponse(ts = 100L, videoA, videoB))
         recorder.record(sessionId, sequenceResponse(ts = 200L, videoA, videoB, videoX))

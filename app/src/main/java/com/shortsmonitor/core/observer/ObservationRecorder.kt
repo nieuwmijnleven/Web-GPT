@@ -597,9 +597,12 @@ class ObservationRecorder(
                 state.installedAt != null && state.firstRequestAt != null &&
                     state.firstRequestAt - state.installedAt > MISSED_INITIAL_THRESHOLD_MS
                 )
+        val restricted = missed || state.lastSequenceVideoCount == 0
+        // 초기 시퀀스 누락 등 제한 상태에서는 네트워크 삽입을 확정하지 않는다.
+        networkDetector.setRestricted(restricted)
         lastObserverState = state.copy(
             missedInitialPossible = missed,
-            restricted = missed || state.lastSequenceVideoCount == 0,
+            restricted = restricted,
         )
         dao.upsert(lastObserverState!!)
     }
