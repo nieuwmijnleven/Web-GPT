@@ -1,0 +1,31 @@
+[Unit]
+Description=OpenAI Secure MCP Tunnel client for DevSpace
+Requires=devspace.service
+After=devspace.service network-online.target
+Wants=network-online.target
+PartOf=devspace.service
+
+[Service]
+Type=simple
+User=devspace
+Group=devspace
+WorkingDirectory=/var/lib/devspace
+Environment=HOME=/var/lib/devspace
+EnvironmentFile=/etc/devspace/openai-mcp-tunnel.env
+ExecStart=/usr/local/libexec/run-openai-mcp-tunnel
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+KillSignal=SIGTERM
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/devspace
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

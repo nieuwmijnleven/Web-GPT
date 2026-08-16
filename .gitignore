@@ -12,3 +12,10 @@ captures/
 
 # 민감정보가 포함된 네트워크 캡처 파일 (HAR 등)은 커밋하지 않는다.
 *.har
+
+.env
+.env.*
+!.env.example
+*.secret
+*.token
+*.key

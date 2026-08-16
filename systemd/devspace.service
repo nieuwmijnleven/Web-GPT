@@ -1,0 +1,31 @@
+[Unit]
+Description=DevSpace private local MCP server
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=devspace
+Group=devspace
+WorkingDirectory=/var/lib/devspace
+Environment=HOME=/var/lib/devspace
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=NODE_ENV=production
+Environment=DEVSPACE_TOOL_MODE=full
+Environment=DEVSPACE_WIDGETS=off
+Environment=DEVSPACE_LOG_LEVEL=info
+Environment=DEVSPACE_LOG_FORMAT=json
+ExecStart=/usr/bin/node /home/ivenewjeans25/.npm-global/lib/node_modules/@waishnav/devspace/dist/cli.js serve
+Restart=on-failure
+RestartSec=5s
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/devspace /home/ivenewjeans25/forum-for-democracy
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

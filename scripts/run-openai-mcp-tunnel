@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+
+: "${OPENAI_TUNNEL_ID:?OPENAI_TUNNEL_ID is required; obtain it from Platform tunnel settings}"
+: "${OPENAI_TUNNEL_RUNTIME_KEY:?OPENAI_TUNNEL_RUNTIME_KEY is required; use a restricted runtime key}"
+: "${DEVSPACE_MCP_URL:?DEVSPACE_MCP_URL is required}"
+
+exec /usr/local/bin/tunnel-client run \
+  --profile-file /etc/devspace/tunnel-client/devspace.yaml \
+  --control-plane.tunnel-id "$OPENAI_TUNNEL_ID" \
+  --control-plane.api-key env:OPENAI_TUNNEL_RUNTIME_KEY \
+  --mcp.server-url "url=$DEVSPACE_MCP_URL,channel=main" \
+  --health.listen-addr "${TUNNEL_HEALTH_LISTEN_ADDR:-127.0.0.1:8080}" \
+  --log.level "${TUNNEL_LOG_LEVEL:-info}" \
+  --log.format json \
+  --log.file stdout
