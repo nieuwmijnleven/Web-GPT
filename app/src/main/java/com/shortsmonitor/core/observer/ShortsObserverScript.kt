@@ -48,8 +48,12 @@ object ShortsObserverScript {
     /** 스냅샷 디바운스 시간. */
     const val SNAPSHOT_DEBOUNCE_MS = 200L
 
-    /** 네트워크 응답 분석에 허용하는 최대 문자 수. */
-    const val MAX_RESPONSE_CHARS = 2_000_000
+    /**
+     * 네트워크 응답 분석에 허용하는 최대 문자 수.
+     * 초기 reel_watch_sequence 응답에는 이후 영상의 실행 정보가 포함돼 수 MB에 이를 수 있다.
+     * 분석은 페이지 내부에서만 수행하고 네이티브로 본문을 보내지 않으므로 크게 유지한다.
+     */
+    const val MAX_RESPONSE_CHARS = 8_000_000
 
     /** 단일 시퀀스에서 허용하는 최대 항목 수. */
     const val MAX_SEQUENCE_ITEMS = 200
@@ -86,6 +90,48 @@ object ShortsObserverScript {
           function clip(value, max) {
             if (typeof value !== 'string') return '';
             return value.length > max ? value.slice(0, max) : value;
+          }
+
+          /**
+           * 요청 본문을 안전하게 문자열로 변환한다. 원본 객체는 소비하지 않는다.
+           * 문자열·URLSearchParams·FormData·ArrayBuffer만 동기적으로 읽는다.
+           * Blob·ReadableStream 등은 읽으면 원본 요청을 소비하므로 빈 문자열로 처리한다.
+           */
+          function bodyTextOf(body) {
+            if (body == null) { return ''; }
+            if (typeof body === 'string') { return body; }
+            try {
+              if (typeof URLSearchParams !== 'undefined' && body instanceof URLSearchParams) {
+                return body.toString();
+              }
+              if (typeof FormData !== 'undefined' && body instanceof FormData) {
+                var sp = new URLSearchParams();
+                body.forEach(function (value, key) { sp.append(key, value); });
+                return sp.toString();
+              }
+              if (typeof TextDecoder !== 'undefined' && typeof ArrayBuffer !== 'undefined') {
+                if (body instanceof ArrayBuffer || ArrayBuffer.isView(body)) {
+                  return new TextDecoder().decode(body);
+                }
+              }
+            } catch (e) { /* 변환 실패는 빈 본문으로 처리한다 */ }
+            return '';
+          }
+
+          // URL 인코딩된 폼 본문(k=v&k2=v2)을 객체로 파싱한다. 첫 값만 유지한다.
+          function parseFormBody(text) {
+            var result = {};
+            var pairs = String(text).split('&');
+            for (var i = 0; i < pairs.length; i++) {
+              var eq = pairs[i].indexOf('=');
+              if (eq <= 0) { continue; }
+              try {
+                var k = decodeURIComponent(pairs[i].slice(0, eq).replace(/\+/g, ' '));
+                var v = decodeURIComponent(pairs[i].slice(eq + 1).replace(/\+/g, ' '));
+                if (k && !(k in result)) { result[k] = v; }
+              } catch (e) { /* 잘못된 쌍은 건너뛴다 */ }
+            }
+            return result;
           }
 
           // ===== 유튜브 DOM 선택자 중앙 관리 =====
@@ -876,14 +922,26 @@ object ShortsObserverScript {
               warnings: []
             };
             var obj = null;
-            try { obj = JSON.parse(bodyText); } catch (e) {
-              out.warnings.push('request_body_parse_failed');
-              out.bodyStructureHash = hashOf(bodyText || '');
+            if (!bodyText) {
+              // 읽을 수 없거나 빈 본문(Blob·스트림 등)은 실패로 보지 않고 빈 상태로 기록한다.
+              out.warnings.push('request_body_empty');
               return out;
+            }
+            try { obj = JSON.parse(bodyText); } catch (e) {
+              // URL 인코딩된 폼 본문일 수 있다: sequenceParams 등 안전하게 추출한다.
+              var form = parseFormBody(bodyText);
+              if (Object.keys(form).length > 0) {
+                out.warnings.push('request_body_form_encoded');
+                obj = form;
+              } else {
+                out.warnings.push('request_body_parse_failed');
+                out.bodyStructureHash = hashOf(bodyText);
+                return out;
+              }
             }
             if (!obj || typeof obj !== 'object') {
               out.warnings.push('request_body_not_object');
-              out.bodyStructureHash = hashOf(bodyText || '');
+              out.bodyStructureHash = hashOf(bodyText);
               return out;
             }
             out.bodyStructureHash = skeletonHash(obj);
@@ -1204,7 +1262,7 @@ object ShortsObserverScript {
                     var correlation = '';
                     try {
                       url = typeof input === 'string' ? input : (input && input.url) || '';
-                      bodyText = (init && typeof init.body === 'string') ? init.body : '';
+                      bodyText = bodyTextOf(init && init.body);
                       kind = classifyRequest(url);
                       if (kind !== 'other') {
                         correlation = NetworkObserver.newCorrelation();
@@ -1259,7 +1317,7 @@ object ShortsObserverScript {
                     var kind = classifyRequest(url);
                     var correlation = NetworkObserver.newCorrelation();
                     if (kind !== 'other') {
-                      var bodyText = typeof body === 'string' ? body : '';
+                      var bodyText = bodyTextOf(body);
                       try {
                         NetworkObserver.onRequestSeen(kind, url, bodyText, correlation);
                       } catch (e) { /* 분석 실패가 원본 send를 막지 않는다 */ }
@@ -1271,6 +1329,8 @@ object ShortsObserverScript {
                             try {
                               if (self.responseType === '' || self.responseType === 'text') {
                                 NetworkObserver.onSequenceResponse(String(self.responseText || ''), url, correlation);
+                              } else if (self.responseType === 'json' && self.response && typeof self.response === 'object') {
+                                NetworkObserver.onSequenceResponse(JSON.stringify(self.response), url, correlation);
                               }
                             } catch (e) {
                               NetworkObserver.warn('xhr_analysis_failed', '');

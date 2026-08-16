@@ -173,8 +173,18 @@ class ShortsObserverNetworkParserTest {
     }
 
     @Test
+    fun largeButValidResponse_isParsed() {
+        // 초기 시퀀스 응답은 수 MB에 이를 수 있다. 2MB를 넘는 정상 JSON도 파싱해야 한다.
+        val large = "{\"entries\": [${videoEntry(videoA)}, ${videoEntry(videoB)}], \"padding\": \"" + "x".repeat(2_500_000) + "\"}"
+        val result = runParser(large)
+
+        assertEquals("parsed", result.getString("parseStatus"))
+        assertEquals(2, result.getJSONArray("items").length())
+    }
+
+    @Test
     fun oversizedResponse_isRejectedWithLimitWarning() {
-        val huge = response(videoEntry(videoA)) + "\",\"padding\":\"" + "x".repeat(2_100_000)
+        val huge = response(videoEntry(videoA)) + "\",\"padding\":\"" + "x".repeat(8_100_000)
         val result = runParser(huge)
 
         assertEquals("failed", result.getString("parseStatus"))
@@ -260,6 +270,33 @@ class ShortsObserverNetworkParserTest {
             val result = JSONObject(h.parseRequestBody("player", "not json"))
             assertTrue(result.getJSONArray("warnings").toString().contains("request_body_parse_failed"))
             assertFalse(result.getString("bodyStructureHash").isEmpty())
+        }
+    }
+
+    @Test
+    fun requestBody_empty_reportsEmptyWarningWithoutFailure() {
+        // Blob·스트림 등 읽을 수 없는 본문은 실패로 보지 않고 빈 상태로 기록한다.
+        ShortsObserverHarness.newSession().use { h ->
+            h.loadObserver()
+            val result = JSONObject(h.parseRequestBody("reel_watch_sequence", ""))
+            assertTrue(result.getJSONArray("warnings").toString().contains("request_body_empty"))
+            assertFalse(result.getJSONArray("warnings").toString().contains("request_body_parse_failed"))
+        }
+    }
+
+    @Test
+    fun requestBody_formEncoded_decodesSequenceParams() {
+        // URL 인코딩된 폼 본문에서도 sequenceParams를 디코딩한다.
+        val sp = sequenceParamsOf(videoA, videoB)
+        val body = "context={\"client\":{\"clientName\":\"MWEB\"}}&sequenceParams=$sp&continuation=CONT"
+        ShortsObserverHarness.newSession().use { h ->
+            h.loadObserver()
+            val result = JSONObject(h.parseRequestBody("reel_watch_sequence", body))
+            assertTrue(result.getJSONArray("warnings").toString().contains("request_body_form_encoded"))
+            assertEquals(videoA, result.getString("currentVideoId"))
+            val ids = JSONArray(result.getJSONArray("sequenceVideoIds").toString())
+            assertEquals(2, ids.length())
+            assertEquals(videoB, ids.getString(1))
         }
     }
 
