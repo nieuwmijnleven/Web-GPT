@@ -14,6 +14,24 @@ has_https_assignment() {
   sudo grep -Eq "^[[:space:]]*${name}=https://[^[:space:]#]+[[:space:]]*$" "$env_file"
 }
 
+wait_http() {
+  local label=$1
+  local url=$2
+  local attempts=${3:-30}
+  local i
+
+  for ((i = 1; i <= attempts; i++)); do
+    if curl --fail --silent --show-error --max-time 2 "$url" >/dev/null 2>&1; then
+      printf '%s\n' "$label: ready"
+      return 0
+    fi
+    sleep 1
+  done
+
+  printf '%s\n' "$label: not ready after ${attempts}s ($url)" >&2
+  return 1
+}
+
 sudo install -d -o root -g root -m 0755 /etc/devspace/tunnel-client /usr/local/libexec
 sudo install -o root -g root -m 0644 "$repo_dir/systemd/devspace.service" /etc/systemd/system/devspace.service
 sudo install -o root -g root -m 0644 "$repo_dir/systemd/devspace-oauth-gateway.service" /etc/systemd/system/devspace-oauth-gateway.service
@@ -31,10 +49,12 @@ fi
 sudo systemctl daemon-reload
 sudo systemctl enable devspace.service
 sudo systemctl restart devspace.service
+wait_http "DevSpace" "http://127.0.0.1:9191/healthz"
 
 if has_https_assignment OAUTH_PUBLIC_BASE_URL; then
   sudo systemctl enable devspace-oauth-gateway.service
   sudo systemctl restart devspace-oauth-gateway.service
+  wait_http "OAuth gateway" "http://127.0.0.1:9292/healthz"
 else
   printf '%s\n' "DevSpace enabled; OAuth gateway not started because OAUTH_PUBLIC_BASE_URL is absent or not HTTPS."
 fi
