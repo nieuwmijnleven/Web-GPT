@@ -15,5 +15,5 @@ if [[ -f "$repo_dir/oauth-proxy/docker-compose.yml" ]]; then
   docker compose --file "$repo_dir/oauth-proxy/docker-compose.yml" up --detach
 fi
 
-sudo "$repo_dir/scripts/check-oauth-gateway.sh"
-sudo "$repo_dir/scripts/check-tunnel.sh"
+sudo bash -x "$repo_dir/scripts/check-oauth-gateway.sh"
+sudo bash -x "$repo_dir/scripts/check-tunnel.sh"
