@@ -1,24 +1,19 @@
-#/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-export OAUTH_PUBLIC_BASE_URL=https://auth.forumfordemocracy.net
-export MCP_PUBLIC_RESOURCE_URL=https://auth.forumfordemocracy.net/mcp
+repo_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+env_file=${DEVSPACE_TUNNEL_ENV_FILE:-/etc/devspace/openai-mcp-tunnel.env}
 
-export DEVSPACE_MCP_URL=http://127.0.0.1:9191/mcp
-export OAUTH_GATEWAY_LISTEN_ADDR=127.0.0.1:9292
+if ! sudo test -r "$env_file"; then
+  printf '%s\n' "Missing or unreadable tunnel environment file: $env_file" >&2
+  exit 1
+fi
 
-export OPENAI_MCP_TUNNEL_TARGET_URL=http://127.0.0.1:9292/mcp
+"$repo_dir/scripts/install-services.sh"
 
-sudo systemctl stop openai-mcp-tunnel.service
-sudo systemctl stop devspace-oauth-gateway.service
-sudo systemctl stop devspace.service
+if [[ -f "$repo_dir/oauth-proxy/docker-compose.yml" ]]; then
+  docker compose --file "$repo_dir/oauth-proxy/docker-compose.yml" up --detach
+fi
 
-cd ~/shorts-monitor/oauth-proxy
-docker compose down
-
-sudo systemctl start devspace.service
-sudo systemctl start devspace-oauth-gateway.service
-
-cd ~/shorts-monitor/oauth-proxy
-docker compose up -d
-
-sudo systemctl start openai-mcp-tunnel.service
+sudo "$repo_dir/scripts/check-oauth-gateway.sh"
+sudo "$repo_dir/scripts/check-tunnel.sh"

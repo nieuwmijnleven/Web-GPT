@@ -13,6 +13,7 @@ Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=NODE_ENV=production
 Environment=DEVSPACE_TOOL_MODE=full
 Environment=DEVSPACE_WIDGETS=off
+Environment=DEVSPACE_TRUST_PROXY=1
 Environment=DEVSPACE_LOG_LEVEL=info
 Environment=DEVSPACE_LOG_FORMAT=json
 ExecStart=/usr/bin/node /home/ivenewjeans25/.npm-global/lib/node_modules/@waishnav/devspace/dist/cli.js serve

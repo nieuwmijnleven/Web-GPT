@@ -2,13 +2,29 @@
 
 ## Current state
 
-The official `openai/tunnel-client` v0.0.11 Linux amd64 binary is installed at `/usr/local/bin/tunnel-client`; the release archive SHA-256 `29adfe5c1399dfb9fda9383f230c324355912f50dc36e2e416b1f1322317b3c4` was verified before extraction. `config/openai-mcp-tunnel.yaml` is the profile installed at `/etc/devspace/tunnel-client/devspace.yaml`. The wrapper `scripts/run-openai-mcp-tunnel` translates project variables to the supported v0.0.11 flags and targets the loopback OAuth gateway.
+The official `openai/tunnel-client` v0.0.11 Linux amd64 binary is installed at `/usr/local/bin/tunnel-client`. `config/openai-mcp-tunnel.yaml` is installed at `/etc/devspace/tunnel-client/devspace.yaml`, and `scripts/run-openai-mcp-tunnel` targets the loopback OAuth gateway.
 
-The tunnel ID and restricted runtime key are stored outside Git in `/etc/devspace/openai-mcp-tunnel.env`; no administrative key is placed in the runtime service.
+The tunnel ID, restricted runtime key, public OAuth origin, and public resource identifier are stored outside Git in `/etc/devspace/openai-mcp-tunnel.env`. No administrative key is placed in the runtime service, and the DevSpace service does not read this file.
 
-## Supported translation
+## Required environment file
 
-The installed client supports the following relevant forms:
+Use one literal assignment per line and no shell expansions:
+
+```text
+OAUTH_PUBLIC_BASE_URL=https://auth.forumfordemocracy.net
+MCP_PUBLIC_RESOURCE_URL=https://auth.forumfordemocracy.net/mcp
+DEVSPACE_MCP_URL=http://127.0.0.1:9191/mcp
+OAUTH_GATEWAY_LISTEN_ADDR=127.0.0.1:9292
+OPENAI_MCP_TUNNEL_TARGET_URL=http://127.0.0.1:9292/mcp
+OPENAI_TUNNEL_ID=<tunnel ID>
+OPENAI_TUNNEL_RUNTIME_KEY=<restricted runtime key>
+TUNNEL_HEALTH_LISTEN_ADDR=127.0.0.1:8080
+TUNNEL_LOG_LEVEL=info
+```
+
+The file must remain mode `0640`, owned by `root:devspace`. `DEVSPACE_TRUST_PROXY=1` is set directly in `systemd/devspace.service`; do not copy the tunnel runtime key into that unit.
+
+## Supported tunnel-client translation
 
 ```text
 --control-plane.tunnel-id "$OPENAI_TUNNEL_ID"
@@ -18,28 +34,37 @@ The installed client supports the following relevant forms:
 --log.level info --log.format json --log.file stdout
 ```
 
-The client exposes loopback `/healthz`, `/readyz`, `/metrics`, and `/ui`. The profile keeps the admin UI loopback-only. Version 0.0.11 does not expose separate public flags for an upstream request timeout, keepalive interval, or reconnect backoff; the client’s built-in connection lifecycle is used rather than inventing unsupported settings. `--mcp.connection-max-ttl`, poll timeout, and max concurrent request flags are available if a later operational requirement needs them.
+The client exposes loopback `/healthz`, `/readyz`, `/metrics`, `/api/status`, `/api/oauth`, and `/ui`. The admin UI remains loopback-only.
 
-## Provisioning steps
+## Provisioning and startup
 
-1. In [Platform tunnel settings](https://platform.openai.com/settings/organization/tunnels), list existing tunnels before creating anything. Reuse a tunnel already associated with the target Platform organization and ChatGPT Business workspace when its purpose matches DevSpace.
-2. If no match exists, create one named for this service, associate both the Platform organization and ChatGPT workspace, and record its ID. Tunnel CRUD requires `Tunnels Read + Manage`; runtime use and ChatGPT selection require `Tunnels Read + Use`.
-3. Create a separate restricted runtime API key from [Runtime API keys](https://platform.openai.com/settings/organization/api-keys). Keep the admin key for administration only.
-4. Edit `/etc/devspace/openai-mcp-tunnel.env` with `sudoedit`, using one assignment per line and no shell expansions:
+1. Create or reuse a tunnel associated with the intended Platform organization and ChatGPT Business workspace.
+2. Give the runtime-key principal Tunnels **Read + Use**. Use a separate admin key only for tunnel management.
+3. Populate `/etc/devspace/openai-mcp-tunnel.env` with the values above.
+4. Run `./start-mcp.sh`, or run `scripts/install-services.sh` followed by the two check scripts.
+5. Do not start a ChatGPT tool scan until both checks pass.
 
-```text
-DEVSPACE_MCP_URL=http://127.0.0.1:9191/mcp
-OPENAI_TUNNEL_ID=<the returned tunnel ID>
-OPENAI_TUNNEL_RUNTIME_KEY=<the restricted runtime key>
-TUNNEL_LOG_LEVEL=info
-```
+## Validation gates
 
-The angle-bracketed values above are field descriptions for the local handoff; they must be replaced before starting the unit and must never be committed. The file is mode 0640 and readable only by root and the `devspace` group.
+`scripts/check-oauth-gateway.sh` verifies all of the following:
 
-5. Run `sudo systemctl enable --now devspace-oauth-gateway.service openai-mcp-tunnel.service`, then run `scripts/check-oauth-gateway.sh` and `sudo scripts/check-tunnel.sh`. Confirm the gateway metadata locally and `/healthz` on `127.0.0.1:8080`; `/readyz` can report the expected unauthenticated MCP probe while OAuth is enabled.
+- the gateway process actually loaded the public base and resource values;
+- both loopback-gateway and public well-known documents advertise the same public HTTPS URLs;
+- PKCE S256 and DCR metadata are present;
+- no protected-resource document, authorization-server document, or `WWW-Authenticate` challenge leaks a loopback URL.
 
-## OAuth gateway decision
+`sudo scripts/check-tunnel.sh` verifies all of the following:
 
-The tunnel target is the loopback OAuth-aware gateway at `127.0.0.1:9292`; DevSpace remains at `127.0.0.1:9191` and is never exposed directly. Local protocol/auth/catalog/write/command/reconnect tests continue to target DevSpace directly, while the gateway-specific checks cover metadata passthrough, OAuth endpoint proxying, resource-parameter translation, and MCP Bearer forwarding.
+- `tunnel-client doctor` passes;
+- the running service returns HTTP 200 from `/readyz`;
+- the running tunnel ID and MCP target match the environment file;
+- OAuth discovery selected the public authorization server;
+- the control-plane poll-success metric is greater than zero.
 
-The gateway preserves DevSpace's OAuth discovery documents and challenge, translates the tunnel-facing `resource` parameter back to DevSpace's loopback resource for authorization and token requests, and proxies the resulting token to DevSpace. `tunnel-client` performs local OAuth discovery, while the OpenAI tunnel service carries the MCP path and preserves the upstream authorization-server metadata for the browser-facing flow. OpenAI documents that the authorization server itself is not automatically tunneled, so its endpoints must remain reachable by the actor that performs the OAuth flow ([Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)). Run the Business workspace scan only after the tunnel client is running and inspect the gateway/tunnel logs if discovery or token exchange fails.
+A `/healthz` response alone is not enough. An OAuth-protected MCP startup probe may produce a readiness body such as `ready (mcp initialize requires auth: ...)`, but the HTTP status must still be 200.
+
+## OAuth gateway behavior
+
+The gateway rewrites DevSpace's loopback discovery values to the public OAuth origin for ChatGPT and the browser. It translates the public `resource` parameter back to DevSpace's internal resource for authorization and token operations. The Secure MCP Tunnel carries MCP traffic, while nginx exposes only the OAuth browser/discovery endpoints; public `/mcp` remains blocked.
+
+If a runtime key is exposed in chat, logs, shell history, or a ticket, revoke it and create a replacement before relying on the tunnel again.

@@ -1,8 +1,9 @@
 # Private DevSpace connection architecture
 
-The implemented design is:
+The deployment has two separate paths.
 
 ```text
+MCP data plane
 ChatGPT Business custom MCP app
   -> OpenAI Secure MCP Tunnel endpoint
   -> tunnel-client on this VPS (outbound HTTPS only)
@@ -10,30 +11,44 @@ ChatGPT Business custom MCP app
   -> http://127.0.0.1:9191/mcp
   -> DevSpace running as devspace
   -> /home/ivenewjeans25/forum-for-democracy
+
+OAuth browser and discovery plane
+ChatGPT / the user's browser
+  -> https://auth.forumfordemocracy.net
+  -> nginx on this VPS
+  -> http://127.0.0.1:9292
+  -> http://127.0.0.1:9191
 ```
 
-The gateway is loopback-only; it is not a public reverse proxy or a second MCP listener. It preserves DevSpace's protected-resource metadata, authorization-server metadata, and `WWW-Authenticate` challenge, proxies authorization/token/registration requests to DevSpace after translating the tunnel-facing `resource` parameter to DevSpace's loopback resource, and forwards the resulting Bearer token to `/mcp`. The OpenAI tunnel service owns tunnel-facing URL handling; the gateway does not fabricate a public OAuth issuer or rewrite discovery metadata.
+The public `/mcp` transport remains blocked by nginx. `https://auth.forumfordemocracy.net/mcp` is the canonical OAuth resource identifier, not a publicly exposed MCP endpoint.
+
+## Gateway behavior
+
+DevSpace keeps its internal OAuth identity at `http://127.0.0.1:9191`. The loopback gateway rewrites protected-resource metadata, authorization-server metadata, redirect locations, and the `WWW-Authenticate` resource-metadata URL to the configured public HTTPS origin. For `/authorize`, `/token`, and `/revoke`, it translates the public `resource` value back to DevSpace's loopback resource before proxying the request.
+
+This split is required because the Secure MCP Tunnel carries MCP JSON-RPC but does not generically tunnel the user's browser to the authorization server. Public OAuth metadata must therefore contain only reachable HTTPS URLs, while DevSpace continues validating tokens against its internal resource value.
 
 ## Installed state
 
 - OS: Ubuntu 24.04, Linux x86_64, systemd active.
 - DevSpace: `@waishnav/devspace` 1.0.6, Node v24.19.0, installed under the existing npm global tree.
-- npm registry metadata for 1.0.6 reports integrity `sha512-lLwUip5Wv1mwpEmAbpms7bourW5g0a0US1PDHCD2CITgCK6DnMTh5++6z8ODIEY+T30oxoTQlxdH4T+VkWlbNA==`; the installed package resolves to 1.0.6.
 - DevSpace service account: dedicated system user `devspace`; it has ACL access only to the configured workspace tree and read/execute access to the installed DevSpace package.
-- MCP bind: `127.0.0.1:9191/mcp`; the service public base URL remains `http://127.0.0.1:9191` for DevSpace's internal OAuth resource checks.
-- OAuth gateway bind: `127.0.0.1:9292/mcp`; it has no public listener or public-base configuration.
-- Tunnel client: official `openai/tunnel-client` Linux amd64 release v0.0.11. The release archive SHA-256 `29adfe5c1399dfb9fda9383f230c324355912f50dc36e2e416b1f1322317b3c4` was verified before extraction; the installed binary is `/usr/local/bin/tunnel-client`.
-- Services: `devspace.service`, `devspace-oauth-gateway.service`, and `openai-mcp-tunnel.service` are installed and ordered so the tunnel cannot start without the gateway.
-
-The original user configuration was backed up before service-account migration as `/home/ivenewjeans25/.devspace/config.json.bak.20260816T051600Z`. The owner token was copied without being displayed.
+- MCP bind: `127.0.0.1:9191/mcp`; `DEVSPACE_PUBLIC_BASE_URL` remains the loopback URL used by DevSpace internally.
+- OAuth gateway bind: `127.0.0.1:9292`; `OAUTH_PUBLIC_BASE_URL` and `MCP_PUBLIC_RESOURCE_URL` are loaded from `/etc/devspace/openai-mcp-tunnel.env`.
+- Public OAuth origin: `https://auth.forumfordemocracy.net`, reverse-proxied by nginx to the gateway. The public `/mcp` transport is denied.
+- Tunnel client: official `openai/tunnel-client` Linux amd64 release v0.0.11 at `/usr/local/bin/tunnel-client`.
+- Services: `devspace.service`, `devspace-oauth-gateway.service`, and `openai-mcp-tunnel.service` are ordered so the tunnel cannot start without the gateway.
+- `DEVSPACE_TRUST_PROXY=1` is set in `devspace.service`; the shared tunnel environment file is not loaded into the DevSpace process, so the runtime key is not exposed to it.
 
 ## Configuration mapping
 
-The requested project names are mapped only where the installed DevSpace supports them: `DEVSPACE_HOST` → `HOST`, `DEVSPACE_PORT` → `PORT`, `DEVSPACE_ALLOWED_ROOTS` → `DEVSPACE_ALLOWED_ROOTS`, `DEVSPACE_PUBLIC_BASE_URL` → `DEVSPACE_PUBLIC_BASE_URL`, and `DEVSPACE_AUTH_TOKEN` → `DEVSPACE_OAUTH_OWNER_TOKEN`/the owner token in `auth.json`. The MCP path is fixed by the installed server at `/mcp`; `DEVSPACE_AUTH_HEADER` is not a supported DevSpace setting because this version uses OAuth bearer tokens. `OPENAI_MCP_TUNNEL_TARGET_URL` points tunnel-client at the gateway, while the gateway uses `DEVSPACE_MCP_URL` for the loopback DevSpace target. No `DEVSPACE_REQUEST_TIMEOUT` or `DEVSPACE_SESSION_TIMEOUT` setting exists in the installed configuration parser: the HTTP client timeout is tunnel-client-owned, and DevSpace retains idle MCP sessions for 24 hours. Unsupported project names were not invented as flags.
+`OPENAI_MCP_TUNNEL_TARGET_URL` points tunnel-client at the gateway. `DEVSPACE_MCP_URL` is the fixed loopback upstream used by the gateway. `OAUTH_PUBLIC_BASE_URL` controls the public issuer and endpoint URLs, while `MCP_PUBLIC_RESOURCE_URL` controls the public resource identifier. The gateway must fail validation if either its local or public metadata leaks `127.0.0.1`, `localhost`, or `::1`.
+
+The installed DevSpace supports `DEVSPACE_ALLOWED_ROOTS`, its owner-token file, and the fixed `/mcp` path. Request timeout and connection lifecycle settings belong to tunnel-client rather than being invented as unsupported DevSpace flags.
 
 ## Trust boundaries
 
-DevSpace OAuth protects the loopback MCP endpoint. The loopback gateway is the only tunnel target and forwards only to the fixed DevSpace origin; it does not accept a user-selected upstream or write request bodies to disk. The tunnel client is the only intended remote caller and initiates outbound HTTPS to OpenAI; no inbound tunnel port is required. The `devspace` account can execute arbitrary shell commands within its OS permissions, so the allowed root and account ACL are the principal containment controls. ChatGPT confirmation and workspace app policy are additional controls, not a substitute for least privilege.
+DevSpace OAuth protects the loopback MCP endpoint. The gateway only forwards to the fixed DevSpace origin and does not accept a user-selected upstream. Nginx exposes only OAuth discovery and authorization endpoints. The tunnel client is the only intended remote MCP caller and initiates outbound HTTPS to OpenAI; no inbound tunnel port is required. The `devspace` account can execute shell commands within its OS permissions, so the allowed root and account ACL remain the primary containment controls.
 
 ## Official references used
 

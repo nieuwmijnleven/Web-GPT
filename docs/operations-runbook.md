@@ -5,20 +5,34 @@
 ```bash
 sudo systemctl --no-pager status devspace.service
 sudo systemctl --no-pager status devspace-oauth-gateway.service
-curl -fsS http://127.0.0.1:9191/healthz
-curl -fsS http://127.0.0.1:9292/healthz
+sudo systemctl --no-pager status openai-mcp-tunnel.service
+curl --compressed -fsS http://127.0.0.1:9191/healthz
+curl --compressed -fsS http://127.0.0.1:9292/healthz
+curl --compressed -fsS http://127.0.0.1:8080/healthz
+curl --compressed -fsS http://127.0.0.1:8080/readyz
+sudo scripts/check-oauth-gateway.sh
+sudo scripts/check-tunnel.sh
+```
+
+`/healthz` confirms only that a process is live. Tunnel readiness requires HTTP 200 from `/readyz`. With DevSpace OAuth enabled, the body may explain that unauthenticated `initialize` requires auth; this is ready behavior, not a reason to accept HTTP 503. `check-tunnel.sh` additionally verifies the running tunnel ID, target URL, selected public authorization server, and a successful control-plane poll.
+
+The direct DevSpace diagnostic remains useful but covers only the internal server:
+
+```bash
 DEVSPACE_AUTH_FILE=/home/ivenewjeans25/.devspace/auth.json \
   DEVSPACE_TEST_ROOT=/home/ivenewjeans25/forum-for-democracy \
   scripts/check-devspace-mcp.sh
-sudo journalctl -u devspace.service -n 100 --no-pager
-sudo systemctl --no-pager status openai-mcp-tunnel.service
-curl -fsS http://127.0.0.1:8080/healthz
-curl -fsS http://127.0.0.1:8080/readyz
 ```
 
-`healthz` confirms the tunnel process is live. With DevSpace OAuth enabled, `readyz` can return 503 because tunnel-client's own unauthenticated MCP probe is rejected; this is acceptable only when `/api/oauth` shows successful protected-resource and authorization-server discovery. If `/api/oauth` has no selected metadata, restart the tunnel after the gateway is listening. Use `scripts/check-oauth-gateway.sh`, `sudo scripts/check-tunnel.sh`, and the ChatGPT OAuth scan for end-to-end readiness.
-
 ## Start, stop, and restart
+
+Use the repository entrypoint to install updated units and scripts, restart the services, reload nginx, and run both checks:
+
+```bash
+./start-mcp.sh
+```
+
+For individual operations:
 
 ```bash
 sudo systemctl restart devspace.service
@@ -31,26 +45,24 @@ The gateway requires DevSpace; the tunnel unit requires both. Keep all three run
 
 ## Configuration changes
 
-Use `sudoedit /etc/devspace/openai-mcp-tunnel.env`, preserve mode 0640, and never put credentials in a unit, command history, Git file, or ticket. After changing a tunnel ID or runtime key:
+Use `sudoedit /etc/devspace/openai-mcp-tunnel.env`, preserve mode `0640`, and never put credentials in a unit, command history, Git file, chat, or ticket. After changing a public OAuth URL, tunnel ID, runtime key, or MCP target, run `./start-mcp.sh` and require both checks to pass before scanning tools.
 
-```bash
-sudo systemctl restart openai-mcp-tunnel.service
-scripts/check-tunnel.sh
-```
+`OAUTH_PUBLIC_BASE_URL` must use HTTPS. `MCP_PUBLIC_RESOURCE_URL` is the public resource identifier even though nginx blocks the public `/mcp` transport. DevSpace continues using its loopback resource internally.
 
-Rotate the DevSpace owner token by creating a reviewed backup, updating the service account’s auth file mode 0600, and restarting DevSpace; then reauthorize the ChatGPT app.
+If a runtime key is exposed, revoke it and create a replacement; restarting the old key is not remediation.
 
 ## Logs and retention
 
 ```bash
 sudo journalctl -u devspace.service -f
+sudo journalctl -u devspace-oauth-gateway.service -f
 sudo journalctl -u openai-mcp-tunnel.service -f
 ```
 
-DevSpace uses JSON journald records for requests, session lifecycle, and tool success/failure. Shell command previews and raw HTTP logging remain disabled. The tunnel client uses JSON logs and its loopback admin UI; do not expose `/ui` remotely.
+DevSpace and tunnel-client use structured journald output. Raw HTTP logging remains disabled. Do not expose the tunnel-client admin UI remotely and do not copy bearer tokens into support bundles.
 
 ## Upgrade and rollback
 
-Before an upgrade, record `devspace --version`, `tunnel-client --version`, service unit checksums, and the DevSpace config backup. Upgrade only after local diagnostics pass against the candidate version. Roll back by stopping the units, restoring the prior package/binary and config backup, running `systemctl daemon-reload`, restarting DevSpace, and re-running the local diagnostic before reconnecting ChatGPT.
+Before an upgrade, record `devspace --version`, `tunnel-client --version`, service unit checksums, and the DevSpace configuration backup. Upgrade only after local diagnostics pass against the candidate version. Roll back by stopping the units, restoring the prior package or binary and configuration backup, running `systemctl daemon-reload`, restarting all three services, and re-running both gateway and tunnel checks before reconnecting ChatGPT.
 
 `scripts/uninstall-services.sh` removes only the installed unit files and wrapper; it intentionally retains `/var/lib/devspace`, `/etc/devspace`, the workspace tree, and `/usr/local/bin/tunnel-client` for recovery.
