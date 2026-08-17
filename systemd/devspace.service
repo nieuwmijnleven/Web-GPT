@@ -14,7 +14,7 @@ Environment=NODE_ENV=production
 Environment=HOST=127.0.0.1
 Environment=PORT=9191
 Environment=DEVSPACE_PUBLIC_BASE_URL=http://127.0.0.1:9191
-Environment=DEVSPACE_ALLOWED_ROOTS=/home/ivenewjeans25/forum-for-democracy
+Environment=DEVSPACE_ALLOWED_ROOTS=/home/ivenewjeans25/shorts-monitor
 Environment=DEVSPACE_TOOL_MODE=full
 Environment=DEVSPACE_WIDGETS=off
 Environment=DEVSPACE_TRUST_PROXY=1
