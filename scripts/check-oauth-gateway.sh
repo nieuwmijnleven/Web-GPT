@@ -6,6 +6,36 @@ fail() {
   exit 1
 }
 
+fetch_public_json() {
+  local label=$1
+  local url=$2
+  local response
+  local status
+  local body
+
+  if ! response=$(curl --compressed --silent --show-error --max-time 20 --write-out $'\n%{http_code}' "$url"); then
+    fail "$label request failed before an HTTP response: $url"
+  fi
+
+  status=${response##*$'\n'}
+  body=${response%$'\n'*}
+
+  case "$status" in
+    2??)
+      printf '%s' "$body"
+      ;;
+    521)
+      fail "$label returned HTTP 521 from Cloudflare: the origin refused the connection. Verify nginx is running and listening on TCP 443 for ${public_base#https://}, Cloudflare IP ranges are not blocked by the firewall, and Cloudflare SSL/TLS mode matches the origin HTTPS listener"
+      ;;
+    522)
+      fail "$label returned HTTP 522 from Cloudflare: the origin connection timed out. Verify the public DNS origin address, TCP 443 reachability, firewall rules for Cloudflare IP ranges, and nginx availability"
+      ;;
+    *)
+      fail "$label returned HTTP $status: $url"
+      ;;
+  esac
+}
+
 env_file=${DEVSPACE_TUNNEL_ENV_FILE:-/etc/devspace/openai-mcp-tunnel.env}
 if [[ -r "$env_file" ]]; then
   set -a
@@ -25,8 +55,8 @@ expected_resource=${MCP_PUBLIC_RESOURCE_URL:-$public_base/mcp}
 health=$(curl --compressed --fail --silent --show-error --max-time 5 "$base_url/healthz")
 protected=$(curl --compressed --fail --silent --show-error --max-time 5 "$base_url/.well-known/oauth-protected-resource/mcp")
 authorization=$(curl --compressed --fail --silent --show-error --max-time 5 "$base_url/.well-known/oauth-authorization-server")
-public_protected=$(curl --compressed --fail --silent --show-error --max-time 20 "$public_base/.well-known/oauth-protected-resource/mcp")
-public_authorization=$(curl --compressed --fail --silent --show-error --max-time 20 "$public_base/.well-known/oauth-authorization-server")
+public_protected=$(fetch_public_json "public protected-resource metadata" "$public_base/.well-known/oauth-protected-resource/mcp")
+public_authorization=$(fetch_public_json "public authorization-server metadata" "$public_base/.well-known/oauth-authorization-server")
 
 HEALTH_JSON="$health" \
 LOCAL_PROTECTED_JSON="$protected" \
