@@ -113,6 +113,7 @@ if (normalize(oauth.selected_authorization_server) !== normalize(process.env.EXP
 NODE
 
 polling=false
+metrics=""
 for _ in 1 2 3 4 5; do
   metrics=$(curl --compressed --fail --silent --show-error --max-time 5 "$health_base/metrics")
   if METRICS_TEXT="$metrics" node <<'NODE'
@@ -129,7 +130,16 @@ NODE
   fi
   sleep 1
 done
-[[ "$polling" == true ]] || fail "no successful control-plane poll is visible in metrics"
+
+if [[ "$polling" != true ]]; then
+  printf '%s\n' "tunnel: control-plane poll metrics:" >&2
+  grep -E '^commands_poll_(cycles|errors|last_successful_timestamp_seconds)' <<<"$metrics" >&2 || true
+  printf '%s\n' "tunnel: recent control-plane poll log entries:" >&2
+  journalctl -u openai-mcp-tunnel.service -n 200 --no-pager 2>/dev/null \
+    | grep -Ei 'poller started|poll failed|poll timed out|poller recovered' \
+    | tail -n 20 >&2 || true
+  fail "no successful control-plane poll is visible in metrics; inspect the status_code, error_code, and mitigation above"
+fi
 
 printf '%s\n' "tunnel: ready ($ready_body)"
 printf '%s\n' "tunnel: running configuration matches the tunnel ID and MCP target"
