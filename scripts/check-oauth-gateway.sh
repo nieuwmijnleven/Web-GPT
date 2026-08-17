@@ -25,8 +25,8 @@ expected_resource=${MCP_PUBLIC_RESOURCE_URL:-$public_base/mcp}
 health=$(curl --compressed --fail --silent --show-error --max-time 5 "$base_url/healthz")
 protected=$(curl --compressed --fail --silent --show-error --max-time 5 "$base_url/.well-known/oauth-protected-resource/mcp")
 authorization=$(curl --compressed --fail --silent --show-error --max-time 5 "$base_url/.well-known/oauth-authorization-server")
-public_protected=$(curl --compressed --fail --silent --show-error --max-time 10 "$public_base/.well-known/oauth-protected-resource/mcp")
-public_authorization=$(curl --compressed --fail --silent --show-error --max-time 10 "$public_base/.well-known/oauth-authorization-server")
+public_protected=$(curl --compressed --fail --silent --show-error --max-time 20 "$public_base/.well-known/oauth-protected-resource/mcp")
+public_authorization=$(curl --compressed --fail --silent --show-error --max-time 20 "$public_base/.well-known/oauth-authorization-server")
 
 HEALTH_JSON="$health" \
 LOCAL_PROTECTED_JSON="$protected" \
