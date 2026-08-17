@@ -1,0 +1,30 @@
+# OAuth 전용 HTTPS reverse proxy
+#
+# nginx   : network_mode host → 호스트의 80/443에 직접 바인딩,
+#           호스트 loopback(127.0.0.1:9191)의 OAuth 서버에 접근
+# certbot : Let's Encrypt HTTP-01 발급/갱신 (nginx와 webroot 공유)
+#
+# network_mode: host를 사용하므로 ports: 매핑은 사용하지 않는다.
+# OAuth 서버(9191)는 호스트 loopback에만 남아 있고 공개 노출되지 않는다.
+
+services:
+  nginx:
+    image: nginx:stable-alpine
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    security_opt:
+      - no-new-privileges:true
+
+  certbot:
+    image: certbot/certbot
+    restart: "no"
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    security_opt:
+      - no-new-privileges:true

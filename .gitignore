@@ -19,3 +19,9 @@ captures/
 *.secret
 *.token
 *.key
+
+# Let's Encrypt 인증서/개인키 및 ACME challenge 파일은 커밋하지 않는다.
+oauth-proxy/certbot/conf/*
+oauth-proxy/certbot/www/*
+!oauth-proxy/certbot/conf/.gitkeep
+!oauth-proxy/certbot/www/.gitkeep
