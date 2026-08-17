@@ -25,6 +25,7 @@ health_addr=${TUNNEL_HEALTH_LISTEN_ADDR:-127.0.0.1:8080}
 health_base=${TUNNEL_HEALTH_URL:-http://$health_addr}
 health_base=${health_base%/}
 expected_auth_server=${OAUTH_PUBLIC_BASE_URL%/}/
+poll_ready_timeout=${TUNNEL_POLL_READY_TIMEOUT_SECONDS:-45}
 
 systemctl is-active --quiet openai-mcp-tunnel.service \
   || fail "openai-mcp-tunnel.service is not active"
@@ -114,7 +115,8 @@ NODE
 
 polling=false
 metrics=""
-for _ in 1 2 3 4 5; do
+poll_deadline=$((SECONDS + poll_ready_timeout))
+while (( SECONDS < poll_deadline )); do
   metrics=$(curl --compressed --fail --silent --show-error --max-time 5 "$health_base/metrics")
   if METRICS_TEXT="$metrics" node <<'NODE'
 const line = (process.env.METRICS_TEXT || "")
@@ -138,7 +140,7 @@ if [[ "$polling" != true ]]; then
   journalctl -u openai-mcp-tunnel.service -n 200 --no-pager 2>/dev/null \
     | grep -Ei 'poller started|poll failed|poll timed out|poller recovered' \
     | tail -n 20 >&2 || true
-  fail "no successful control-plane poll is visible in metrics; inspect the status_code, error_code, and mitigation above"
+  fail "no successful control-plane poll is visible after ${poll_ready_timeout}s; inspect the status_code, error_code, and mitigation above"
 fi
 
 printf '%s\n' "tunnel: ready ($ready_body)"
