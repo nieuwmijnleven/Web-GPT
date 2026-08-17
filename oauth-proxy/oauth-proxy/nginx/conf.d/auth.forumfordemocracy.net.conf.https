@@ -1,0 +1,83 @@
+# 최종 HTTPS 설정 — auth.forumfordemocracy.net
+# upstream: http://127.0.0.1:9292 (host network loopback)
+
+# --- HTTP: ACME challenge 허용 + HTTPS redirect ---
+server {
+    listen 80;
+    server_name auth.forumfordemocracy.net;
+
+    # Let's Encrypt HTTP-01 challenge
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# --- HTTPS: OAuth reverse proxy ---
+server {
+    listen 443 ssl;
+    server_name auth.forumfordemocracy.net;
+
+    ssl_certificate     /etc/letsencrypt/live/auth.forumfordemocracy.net/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/auth.forumfordemocracy.net/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+
+    # 보안 헤더 (HSTS/CSP는 선택 사항으로 별도 추가)
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+
+    # 공개 /mcp transport 차단 (정확히 /mcp만)
+    # /mcp/... 하위 경로도 차단하려면 아래에 추가:
+    # location ^~ /mcp/ { return 404; }
+    location = /mcp {
+        return 404;
+    }
+
+    # OAuth well-known metadata
+    # (/.well-known/oauth-protected-resource/mcp 포함)
+    location ~ ^/\.well-known/(oauth-authorization-server|oauth-protected-resource|openid-configuration)(/.*)?$ {
+        proxy_pass http://127.0.0.1:9292;
+        proxy_set_header Host 127.0.0.1:9292;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port 443;
+    }
+
+    # 민감 token endpoint — access log off
+    location ~ ^/(token|register|revoke)(/.*)?$ {
+        access_log off;
+        proxy_pass http://127.0.0.1:9292;
+        proxy_set_header Host 127.0.0.1:9292;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port 443;
+    }
+
+    # /authorize 및 그 외 OAuth 요청 → upstream 전달
+    location / {
+        proxy_pass http://127.0.0.1:9292;
+        proxy_set_header Host 127.0.0.1:9292;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port 443;
+    }
+}
