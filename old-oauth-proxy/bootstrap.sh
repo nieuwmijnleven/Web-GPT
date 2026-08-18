@@ -18,7 +18,7 @@ if [ -z "$EMAIL" ]; then
   exit 1
 fi
 
-HTTPS_CONF="nginx/conf.d/auth.forumfordemocracy.net.conf"
+HTTPS_CONF="nginx/conf.d/auth.forumfordemocracy.net.conf.https"
 HTTP_CONF="nginx/conf.d/auth.forumfordemocracy.net.http.conf"
 STASH="nginx/conf.d/.inactive"
 CERT="certbot/conf/live/auth.forumfordemocracy.net/fullchain.pem"
@@ -43,7 +43,7 @@ docker compose exec -T nginx nginx -t
 # 2) Certbot HTTP-01 인증서 발급
 docker compose run --rm certbot certonly \
   --webroot \
-  --webroot-path=/var/www/certbot \
+  --webroot-path=/home/ivenewjeans25/web-gpt/oauth-proxy/certbot \
   -d auth.forumfordemocracy.net \
   --email "$EMAIL" \
   --agree-tos \
