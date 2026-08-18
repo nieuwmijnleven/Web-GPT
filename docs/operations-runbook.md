@@ -19,8 +19,8 @@ sudo scripts/check-tunnel.sh
 The direct DevSpace diagnostic remains useful but covers only the internal server:
 
 ```bash
-DEVSPACE_AUTH_FILE=/home/ivenewjeans25/.devspace/auth.json \
-  DEVSPACE_TEST_ROOT=/home/ivenewjeans25/forum-for-democracy \
+DEVSPACE_AUTH_FILE=/path/to/.devspace/auth.json \
+  DEVSPACE_TEST_ROOT=/srv/devspace-workspaces/project \
   scripts/check-devspace-mcp.sh
 ```
 
@@ -45,7 +45,7 @@ The gateway requires DevSpace; the tunnel unit requires both. Keep all three run
 
 ## Configuration changes
 
-Use `sudoedit /etc/devspace/openai-mcp-tunnel.env`, preserve mode `0640`, and never put credentials in a unit, command history, Git file, chat, or ticket. After changing a public OAuth URL, tunnel ID, runtime key, or MCP target, run `./start-mcp.sh` and require both checks to pass before scanning tools.
+Use `sudoedit /etc/devspace/devspace.env` for `DEVSPACE_ALLOWED_ROOTS` and `DEVSPACE_EXECUTABLE`. Use `sudoedit /etc/devspace/openai-mcp-tunnel.env` for OAuth and tunnel settings. Preserve mode `0640` on both files, and never put credentials in a unit, command history, Git file, chat, or ticket. After changing either file, run `./start-mcp.sh` and require both checks to pass before scanning tools.
 
 `OAUTH_PUBLIC_BASE_URL` must use HTTPS. `MCP_PUBLIC_RESOURCE_URL` is the public resource identifier even though nginx blocks the public `/mcp` transport. DevSpace continues using its loopback resource internally.
 

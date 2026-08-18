@@ -3,6 +3,57 @@ set -euo pipefail
 
 repo_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 env_file=/etc/devspace/openai-mcp-tunnel.env
+devspace_env=/etc/devspace/devspace.env
+
+resolve_devspace_executable() {
+  local executable=${DEVSPACE_EXECUTABLE:-}
+  local npm_prefix
+
+  if [[ -z "$executable" ]]; then
+    executable=$(command -v devspace 2>/dev/null || true)
+  fi
+  if [[ -z "$executable" ]] && command -v npm >/dev/null 2>&1; then
+    npm_prefix=$(npm prefix -g 2>/dev/null || true)
+    if [[ -n "$npm_prefix" && -x "$npm_prefix/bin/devspace" ]]; then
+      executable="$npm_prefix/bin/devspace"
+    fi
+  fi
+
+  [[ -n "$executable" && -x "$executable" ]] || {
+    printf '%s\n' "Unable to locate the DevSpace executable. Set DEVSPACE_EXECUTABLE and rerun." >&2
+    return 1
+  }
+  printf '%s\n' "$executable"
+}
+
+install_devspace_environment() {
+  local allowed_roots=${DEVSPACE_ALLOWED_ROOTS:-$repo_dir}
+  local executable
+  local tmp
+
+  if [[ -e "$devspace_env" ]]; then
+    sudo chown root:devspace "$devspace_env"
+    sudo chmod 0640 "$devspace_env"
+  else
+    executable=$(resolve_devspace_executable)
+    tmp=$(mktemp)
+    trap 'rm -f "$tmp"' RETURN
+    printf 'DEVSPACE_ALLOWED_ROOTS=%s\nDEVSPACE_EXECUTABLE=%s\n' "$allowed_roots" "$executable" >"$tmp"
+    sudo install -o root -g devspace -m 0640 "$tmp" "$devspace_env"
+    trap - RETURN
+    rm -f "$tmp"
+    printf '%s\n' "Created $devspace_env; adjust DEVSPACE_ALLOWED_ROOTS there to expose additional project roots."
+  fi
+
+  sudo grep -Eq '^DEVSPACE_ALLOWED_ROOTS=[^[:space:]#]+$' "$devspace_env" || {
+    printf '%s\n' "$devspace_env must define DEVSPACE_ALLOWED_ROOTS" >&2
+    return 1
+  }
+  sudo grep -Eq '^DEVSPACE_EXECUTABLE=[^[:space:]#]+$' "$devspace_env" || {
+    printf '%s\n' "$devspace_env must define DEVSPACE_EXECUTABLE" >&2
+    return 1
+  }
+}
 
 has_assignment() {
   local name=$1
@@ -38,7 +89,9 @@ sudo install -o root -g root -m 0644 "$repo_dir/systemd/devspace-oauth-gateway.s
 sudo install -o root -g root -m 0644 "$repo_dir/systemd/openai-mcp-tunnel.service" /etc/systemd/system/openai-mcp-tunnel.service
 sudo install -o root -g root -m 0644 "$repo_dir/config/openai-mcp-tunnel.yaml" /etc/devspace/tunnel-client/devspace.yaml
 sudo install -o root -g root -m 0755 "$repo_dir/scripts/run-openai-mcp-tunnel" /usr/local/libexec/run-openai-mcp-tunnel
+sudo install -o root -g root -m 0755 "$repo_dir/scripts/run-devspace" /usr/local/libexec/run-devspace
 sudo install -o root -g root -m 0755 "$repo_dir/scripts/devspace-oauth-gateway.mjs" /usr/local/libexec/devspace-oauth-gateway
+install_devspace_environment
 if [[ ! -e "$env_file" ]]; then
   sudo install -o root -g devspace -m 0640 /dev/null "$env_file"
 else

@@ -19,7 +19,7 @@ Use ChatGPT on the web as a Business workspace admin or owner.
 
 1. Open **Workspace settings → Apps → Create**. Enable developer mode when required by the current UI.
 2. Choose a custom MCP app and the **Tunnel** connection. Select the exact tunnel configured in `/etc/devspace/openai-mcp-tunnel.env`.
-3. Use OAuth when prompted. ChatGPT and the user's browser reach `https://auth.forumfordemocracy.net`; nginx forwards OAuth requests to the loopback gateway. The gateway rewrites DevSpace's loopback discovery values to public HTTPS URLs and translates the public resource identifier back to DevSpace's internal resource for authorization and token requests.
+3. Use OAuth when prompted. ChatGPT and the user's browser reach the configured `OAUTH_PUBLIC_BASE_URL` (for example `https://auth.example.com`); nginx forwards OAuth requests to the loopback gateway. The gateway rewrites DevSpace's loopback discovery values to public HTTPS URLs and translates the public resource identifier back to DevSpace's internal resource for authorization and token requests.
 4. Run **Scan Tools**. Confirm that all eight tools in `docs/devspace-capabilities.md` appear and no actions were silently omitted.
 5. Create the draft app only after the scan shows the expected catalog.
 

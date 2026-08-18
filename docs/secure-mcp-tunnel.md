@@ -11,8 +11,8 @@ The tunnel ID, restricted runtime key, public OAuth origin, and public resource 
 Use one literal assignment per line and no shell expansions:
 
 ```text
-OAUTH_PUBLIC_BASE_URL=https://auth.forumfordemocracy.net
-MCP_PUBLIC_RESOURCE_URL=https://auth.forumfordemocracy.net/mcp
+OAUTH_PUBLIC_BASE_URL=https://auth.example.com
+MCP_PUBLIC_RESOURCE_URL=https://auth.example.com/mcp
 DEVSPACE_MCP_URL=http://127.0.0.1:9191/mcp
 OAUTH_GATEWAY_LISTEN_ADDR=127.0.0.1:9292
 OPENAI_MCP_TUNNEL_TARGET_URL=http://127.0.0.1:9292/mcp

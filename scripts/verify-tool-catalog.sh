@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-allowed_roots=${DEVSPACE_ALLOWED_ROOTS:-/home/ivenewjeans25/forum-for-democracy}
+repo_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+allowed_roots=${DEVSPACE_ALLOWED_ROOTS:-$repo_dir}
 root=${DEVSPACE_TEST_ROOT:-${allowed_roots%%,*}}
 [[ -n "$root" && -d "$root" ]] || { printf '%s\n' "DEVSPACE_TEST_ROOT or DEVSPACE_ALLOWED_ROOTS must name an existing allowed directory" >&2; exit 2; }
 report=$(mktemp /tmp/devspace-tool-catalog.XXXXXX.json)

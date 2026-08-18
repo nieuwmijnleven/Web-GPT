@@ -5,7 +5,7 @@ DevSpace is a trusted local coding principal, not a restricted read-only file AP
 - loopback-only binding at `127.0.0.1:9191`;
 - loopback-only OAuth-aware gateway at `127.0.0.1:9292` with a fixed DevSpace upstream;
 - DevSpace OAuth owner approval and bearer verification;
-- explicit allowed root `/home/ivenewjeans25/forum-for-democracy` with symlink/path containment in DevSpace;
+- explicit allowed roots configured by `DEVSPACE_ALLOWED_ROOTS` (for example `/srv/devspace-workspaces`) with symlink/path containment in DevSpace;
 - dedicated `devspace` account with no login shell and no sudo grant;
 - systemd `NoNewPrivileges`, private per-service scratch directory, restrictive umask, and bounded writable paths;
 - outbound-only Secure MCP Tunnel; no public ingress;

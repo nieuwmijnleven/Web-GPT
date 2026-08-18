@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${DEVSPACE_EXECUTABLE:=devspace}"
+
+if [[ "$DEVSPACE_EXECUTABLE" == */* ]]; then
+  exec "$DEVSPACE_EXECUTABLE" serve
+fi
+
+exec /usr/bin/env "$DEVSPACE_EXECUTABLE" serve

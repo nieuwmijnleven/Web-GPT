@@ -10,17 +10,17 @@ ChatGPT Business custom MCP app
   -> http://127.0.0.1:9292/mcp (OAuth-aware gateway)
   -> http://127.0.0.1:9191/mcp
   -> DevSpace running as devspace
-  -> /home/ivenewjeans25/forum-for-democracy
+  -> /srv/devspace-workspaces/project
 
 OAuth browser and discovery plane
 ChatGPT / the user's browser
-  -> https://auth.forumfordemocracy.net
+  -> configured OAUTH_PUBLIC_BASE_URL (for example https://auth.example.com)
   -> nginx on this VPS
   -> http://127.0.0.1:9292
   -> http://127.0.0.1:9191
 ```
 
-The public `/mcp` transport remains blocked by nginx. `https://auth.forumfordemocracy.net/mcp` is the canonical OAuth resource identifier, not a publicly exposed MCP endpoint.
+The public `/mcp` transport remains blocked by nginx. `MCP_PUBLIC_RESOURCE_URL` (for example `https://auth.example.com/mcp`) is the canonical OAuth resource identifier, not a publicly exposed MCP endpoint.
 
 ## Gateway behavior
 
@@ -35,7 +35,7 @@ This split is required because the Secure MCP Tunnel carries MCP JSON-RPC but do
 - DevSpace service account: dedicated system user `devspace`; it has ACL access only to the configured workspace tree and read/execute access to the installed DevSpace package.
 - MCP bind: `127.0.0.1:9191/mcp`; `DEVSPACE_PUBLIC_BASE_URL` remains the loopback URL used by DevSpace internally.
 - OAuth gateway bind: `127.0.0.1:9292`; `OAUTH_PUBLIC_BASE_URL` and `MCP_PUBLIC_RESOURCE_URL` are loaded from `/etc/devspace/openai-mcp-tunnel.env`.
-- Public OAuth origin: `https://auth.forumfordemocracy.net`, reverse-proxied by nginx to the gateway. The public `/mcp` transport is denied.
+- Public OAuth origin: configured by `OAUTH_PUBLIC_BASE_URL`, reverse-proxied by nginx to the gateway. The public `/mcp` transport is denied.
 - Tunnel client: official `openai/tunnel-client` Linux amd64 release v0.0.11 at `/usr/local/bin/tunnel-client`.
 - Services: `devspace.service`, `devspace-oauth-gateway.service`, and `openai-mcp-tunnel.service` are ordered so the tunnel cannot start without the gateway.
 - `DEVSPACE_TRUST_PROXY=1` is set in `devspace.service`; the shared tunnel environment file is not loaded into the DevSpace process, so the runtime key is not exposed to it.

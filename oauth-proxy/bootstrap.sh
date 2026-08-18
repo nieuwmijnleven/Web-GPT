@@ -18,10 +18,28 @@ if [ -z "$EMAIL" ]; then
   exit 1
 fi
 
-HTTPS_CONF="nginx/conf.d/auth.forumfordemocracy.net.conf"
-HTTP_CONF="nginx/conf.d/auth.forumfordemocracy.net.http.conf"
+ENV_FILE="${DEVSPACE_TUNNEL_ENV_FILE:-/etc/devspace/openai-mcp-tunnel.env}"
+PUBLIC_BASE="${OAUTH_PUBLIC_BASE_URL:-}"
+if [ -z "$PUBLIC_BASE" ] && sudo test -r "$ENV_FILE"; then
+  PUBLIC_BASE="$(sudo grep -m1 '^OAUTH_PUBLIC_BASE_URL=' "$ENV_FILE" | cut -d= -f2- || true)"
+fi
+if [[ "$PUBLIC_BASE" != https://* ]]; then
+  echo "OAUTH_PUBLIC_BASE_URL must be configured as an https:// URL" >&2
+  exit 1
+fi
+OAUTH_DOMAIN="${PUBLIC_BASE#https://}"
+OAUTH_DOMAIN="${OAUTH_DOMAIN%%/*}"
+OAUTH_DOMAIN="${OAUTH_DOMAIN%%:*}"
+if [ -z "$OAUTH_DOMAIN" ]; then
+  echo "Unable to derive OAuth domain from OAUTH_PUBLIC_BASE_URL" >&2
+  exit 1
+fi
+
+HTTPS_CONF="nginx/conf.d/oauth.conf"
+HTTP_CONF="nginx/conf.d/oauth.http.conf"
 STASH="nginx/conf.d/.inactive"
-CERT="certbot/conf/live/auth.forumfordemocracy.net/fullchain.pem"
+CERT_NAME="devspace-oauth"
+CERT="certbot/conf/live/${CERT_NAME}/fullchain.pem"
 
 if [ -f "$CERT" ]; then
   # 이미 인증서 존재 → HTTPS 설정이 stash 상태면 복원만 수행
@@ -44,7 +62,8 @@ docker compose exec -T nginx nginx -t
 docker compose run --rm certbot certonly \
   --webroot \
   --webroot-path=/var/www/certbot \
-  -d auth.forumfordemocracy.net \
+  -d "$OAUTH_DOMAIN" \
+  --cert-name "$CERT_NAME" \
   --email "$EMAIL" \
   --agree-tos \
   --no-eff-email
@@ -59,4 +78,4 @@ docker compose exec -T nginx nginx -t
 # 5) reload
 docker compose exec -T nginx nginx -s reload
 
-echo "완료: https://auth.forumfordemocracy.net"
+echo "완료: $PUBLIC_BASE"
