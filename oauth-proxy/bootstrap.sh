@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # oauth-proxy 최초 부트스트랩
-#   사용법: ./bootstrap.sh you@example.com
+#   사용법: ./bootstrap.sh [you@example.com]
 #
 # 흐름:
 #   1. HTTP-only Nginx 시작 (HTTPS 설정 임시 비활성화)
@@ -12,13 +12,19 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-EMAIL="${1:-}"
+ENV_FILE="${DEVSPACE_TUNNEL_ENV_FILE:-/etc/devspace/openai-mcp-tunnel.env}"
+EMAIL="${1:-${LETSENCRYPT_EMAIL:-}}"
+if [ -z "$EMAIL" ] && sudo test -r "$ENV_FILE"; then
+  EMAIL="$(sudo grep -m1 '^LETSENCRYPT_EMAIL=' "$ENV_FILE" | cut -d= -f2- || true)"
+fi
 if [ -z "$EMAIL" ]; then
-  echo "사용법: $0 you@example.com" >&2
+  EMAIL="$(git config --get user.email 2>/dev/null || true)"
+fi
+if [ -z "$EMAIL" ]; then
+  echo "Let's Encrypt contact email is required. Pass it as the first argument or set LETSENCRYPT_EMAIL in $ENV_FILE." >&2
   exit 1
 fi
 
-ENV_FILE="${DEVSPACE_TUNNEL_ENV_FILE:-/etc/devspace/openai-mcp-tunnel.env}"
 PUBLIC_BASE="${OAUTH_PUBLIC_BASE_URL:-}"
 if [ -z "$PUBLIC_BASE" ] && sudo test -r "$ENV_FILE"; then
   PUBLIC_BASE="$(sudo grep -m1 '^OAUTH_PUBLIC_BASE_URL=' "$ENV_FILE" | cut -d= -f2- || true)"
