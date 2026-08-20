@@ -72,7 +72,8 @@ docker compose run --rm certbot certonly \
   --cert-name "$CERT_NAME" \
   --email "$EMAIL" \
   --agree-tos \
-  --no-eff-email
+  --no-eff-email \
+  --debug-challenges
 
 # 3) HTTPS 설정 적용
 mv "$STASH" "$HTTPS_CONF"
