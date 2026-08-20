@@ -4,6 +4,7 @@ set -euo pipefail
 repo_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 env_file=/etc/devspace/openai-mcp-tunnel.env
 devspace_env=/etc/devspace/devspace.env
+devspace_install_prefix=${DEVSPACE_INSTALL_PREFIX:-$HOME/.npm-global}
 
 resolve_devspace_executable() {
   local executable=${DEVSPACE_EXECUTABLE:-}
@@ -11,6 +12,9 @@ resolve_devspace_executable() {
 
   if [[ -z "$executable" ]]; then
     executable=$(command -v devspace 2>/dev/null || true)
+  fi
+  if [[ -z "$executable" && -x "$devspace_install_prefix/bin/devspace" ]]; then
+    executable="$devspace_install_prefix/bin/devspace"
   fi
   if [[ -z "$executable" ]] && command -v npm >/dev/null 2>&1; then
     npm_prefix=$(npm prefix -g 2>/dev/null || true)
@@ -24,6 +28,16 @@ resolve_devspace_executable() {
     return 1
   }
   printf '%s\n' "$executable"
+}
+
+ensure_devspace_account() {
+  if ! getent group devspace >/dev/null 2>&1; then
+    sudo groupadd --system devspace
+  fi
+  if ! id -u devspace >/dev/null 2>&1; then
+    sudo useradd --system --gid devspace --home-dir /var/lib/devspace --create-home --shell /usr/sbin/nologin devspace
+  fi
+  sudo install -d -o devspace -g devspace -m 0700 /var/lib/devspace
 }
 
 install_npm_if_missing() {
@@ -40,12 +54,27 @@ install_npm_if_missing() {
   sudo apt-get install -y -qq npm
 }
 
+install_acl_if_missing() {
+  if command -v setfacl >/dev/null 2>&1; then
+    return 0
+  fi
+
+  command -v apt-get >/dev/null 2>&1 || {
+    printf '%s\n' "setfacl is not installed and apt-get is unavailable. Install acl and rerun." >&2
+    return 1
+  }
+
+  sudo apt-get update -qq
+  sudo apt-get install -y -qq acl
+}
+
 install_devspace_if_missing() {
   if resolve_devspace_executable >/dev/null 2>&1; then
     return 0
   fi
 
-  sudo npm install -g --no-audit --no-fund @waishnav/devspace@1.0.6
+  mkdir -p "$devspace_install_prefix"
+  npm install -g --prefix "$devspace_install_prefix" --no-audit --no-fund @waishnav/devspace@1.0.6
   resolve_devspace_executable >/dev/null
 }
 
@@ -78,6 +107,29 @@ install_devspace_environment() {
   }
 }
 
+grant_devspace_access() {
+  local allowed_roots
+  local root
+  local roots=()
+
+  sudo setfacl -m u:devspace:--x "$HOME"
+  if [[ -d "$devspace_install_prefix" ]]; then
+    sudo setfacl -RP -m u:devspace:rX "$devspace_install_prefix"
+    sudo find "$devspace_install_prefix" -type d -exec setfacl -m d:u:devspace:r-x {} +
+  fi
+
+  allowed_roots=$(sudo awk -F= '$1 == "DEVSPACE_ALLOWED_ROOTS" { sub(/^[^=]*=/, ""); print; exit }' "$devspace_env")
+  IFS=',' read -r -a roots <<<"$allowed_roots"
+  for root in "${roots[@]}"; do
+    [[ -d "$root" ]] || {
+      printf '%s\n' "DEVSPACE_ALLOWED_ROOTS entry does not exist: $root" >&2
+      return 1
+    }
+    sudo setfacl -RP -m u:devspace:rwX "$root"
+    sudo find "$root" -type d -exec setfacl -m d:u:devspace:rwx {} +
+  done
+}
+
 has_assignment() {
   local name=$1
   sudo grep -Eq "^[[:space:]]*${name}=[^[:space:]#]+[[:space:]]*$" "$env_file"
@@ -106,7 +158,9 @@ wait_http() {
   return 1
 }
 
+ensure_devspace_account
 install_npm_if_missing
+install_acl_if_missing
 install_devspace_if_missing
 
 sudo install -d -o root -g root -m 0755 /etc/devspace/tunnel-client /usr/local/libexec
@@ -118,6 +172,7 @@ sudo install -o root -g root -m 0755 "$repo_dir/scripts/run-openai-mcp-tunnel" /
 sudo install -o root -g root -m 0755 "$repo_dir/scripts/run-devspace" /usr/local/libexec/run-devspace
 sudo install -o root -g root -m 0755 "$repo_dir/scripts/devspace-oauth-gateway.mjs" /usr/local/libexec/devspace-oauth-gateway
 install_devspace_environment
+grant_devspace_access
 if [[ ! -e "$env_file" ]]; then
   sudo install -o root -g devspace -m 0640 /dev/null "$env_file"
 else
