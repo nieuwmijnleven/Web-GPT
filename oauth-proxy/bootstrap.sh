@@ -42,7 +42,6 @@ if [ -z "$OAUTH_DOMAIN" ]; then
 fi
 
 HTTPS_CONF="nginx/conf.d/oauth.conf"
-HTTP_CONF="nginx/conf.d/oauth.http.conf"
 STASH="nginx/conf.d/.inactive"
 CERT_NAME="devspace-oauth"
 CERT="certbot/conf/live/${CERT_NAME}/fullchain.pem"
@@ -51,8 +50,8 @@ if [ -f "$CERT" ]; then
   # 이미 인증서 존재 → HTTPS 설정이 stash 상태면 복원만 수행
   if [ -f "$STASH" ] && [ ! -f "$HTTPS_CONF" ]; then
     mv "$STASH" "$HTTPS_CONF"
-    docker compose exec -T nginx nginx -t
-    docker compose exec -T nginx nginx -s reload
+    sudo docker compose exec -T nginx nginx -t
+    sudo docker compose exec -T nginx nginx -s reload
   fi
   echo "이미 인증서가 존재합니다. 갱신: docker compose run --rm certbot renew"
   exit 0
@@ -60,12 +59,12 @@ fi
 
 # 1) HTTP-only Nginx 시작
 mv "$HTTPS_CONF" "$STASH"
-docker compose up -d nginx
+sudo docker compose up -d nginx
 sleep 1
-docker compose exec -T nginx nginx -t
+sudo docker compose exec -T nginx nginx -t
 
 # 2) Certbot HTTP-01 인증서 발급
-docker compose run --rm certbot certonly \
+sudo docker compose run --rm certbot certonly \
   --webroot \
   --webroot-path=/var/www/certbot \
   -d "$OAUTH_DOMAIN" \
@@ -77,12 +76,11 @@ docker compose run --rm certbot certonly \
 
 # 3) HTTPS 설정 적용
 mv "$STASH" "$HTTPS_CONF"
-mv "$HTTP_CONF" "$STASH"
 
 # 4) 설정 검증
-docker compose exec -T nginx nginx -t
+sudo docker compose exec -T nginx nginx -t
 
 # 5) reload
-docker compose exec -T nginx nginx -s reload
+sudo docker compose exec -T nginx nginx -s reload
 
 echo "완료: $PUBLIC_BASE"
