@@ -26,6 +26,29 @@ resolve_devspace_executable() {
   printf '%s\n' "$executable"
 }
 
+install_npm_if_missing() {
+  if command -v npm >/dev/null 2>&1; then
+    return 0
+  fi
+
+  command -v apt-get >/dev/null 2>&1 || {
+    printf '%s\n' "npm is not installed and apt-get is unavailable. Install npm and rerun." >&2
+    return 1
+  }
+
+  sudo apt-get update -qq
+  sudo apt-get install -y -qq npm
+}
+
+install_devspace_if_missing() {
+  if resolve_devspace_executable >/dev/null 2>&1; then
+    return 0
+  fi
+
+  sudo npm install -g --no-audit --no-fund @waishnav/devspace@1.0.6
+  resolve_devspace_executable >/dev/null
+}
+
 install_devspace_environment() {
   local allowed_roots=${DEVSPACE_ALLOWED_ROOTS:-$repo_dir}
   local executable
@@ -82,6 +105,9 @@ wait_http() {
   printf '%s\n' "$label: not ready after ${attempts}s ($url)" >&2
   return 1
 }
+
+install_npm_if_missing
+install_devspace_if_missing
 
 sudo install -d -o root -g root -m 0755 /etc/devspace/tunnel-client /usr/local/libexec
 sudo install -o root -g root -m 0644 "$repo_dir/systemd/devspace.service" /etc/systemd/system/devspace.service
