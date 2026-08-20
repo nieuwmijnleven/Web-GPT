@@ -47,18 +47,42 @@ CERT_NAME="devspace-oauth"
 CERT="certbot/conf/live/${CERT_NAME}/fullchain.pem"
 
 if [ -f "$CERT" ]; then
-  # 이미 인증서 존재 → HTTPS 설정이 stash 상태면 복원만 수행
+  # 이미 인증서 존재 → HTTPS 설정이 stash 상태면 복원하고 nginx를 기동/검증한다.
   if [ -f "$STASH" ] && [ ! -f "$HTTPS_CONF" ]; then
     mv "$STASH" "$HTTPS_CONF"
-    sudo docker compose exec -T nginx nginx -t
-    sudo docker compose exec -T nginx nginx -s reload
   fi
-  echo "이미 인증서가 존재합니다. 갱신: docker compose run --rm certbot renew"
+  if [ ! -f "$HTTPS_CONF" ]; then
+    echo "Missing nginx HTTPS configuration: $HTTPS_CONF" >&2
+    exit 1
+  fi
+  sudo docker compose up -d nginx
+  sudo docker compose exec -T nginx nginx -t
+  sudo docker compose exec -T nginx nginx -s reload
+  echo "이미 인증서가 존재합니다. 갱신: sudo docker compose run --rm certbot renew"
   exit 0
 fi
 
-# 1) HTTP-only Nginx 시작
-mv "$HTTPS_CONF" "$STASH"
+# 1) HTTP-only Nginx 시작. 이전 인증서 발급 실패로 이미 stash 상태여도 재실행 가능하다.
+if [ -f "$HTTPS_CONF" ]; then
+  mv "$HTTPS_CONF" "$STASH"
+elif [ ! -f "$STASH" ]; then
+  echo "Missing nginx HTTPS configuration: $HTTPS_CONF" >&2
+  exit 1
+fi
+
+restore_https_config() {
+  local status=$?
+  trap - EXIT
+  if [ "$status" -ne 0 ]; then
+    sudo docker compose stop nginx >/dev/null 2>&1 || true
+  fi
+  if [ -f "$STASH" ] && [ ! -f "$HTTPS_CONF" ]; then
+    mv "$STASH" "$HTTPS_CONF"
+  fi
+  exit "$status"
+}
+trap restore_https_config EXIT
+
 sudo docker compose up -d nginx
 sleep 1
 sudo docker compose exec -T nginx nginx -t
@@ -72,10 +96,12 @@ sudo docker compose run --rm certbot certonly \
   --email "$EMAIL" \
   --agree-tos \
   --no-eff-email \
-  --debug-challenges
+  --non-interactive
 
 # 3) HTTPS 설정 적용
-mv "$STASH" "$HTTPS_CONF"
+if [ -f "$STASH" ]; then
+  mv "$STASH" "$HTTPS_CONF"
+fi
 
 # 4) 설정 검증
 sudo docker compose exec -T nginx nginx -t

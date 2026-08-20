@@ -19,14 +19,21 @@ read_assignment() {
 oauth_public_base_url=$(read_assignment OAUTH_PUBLIC_BASE_URL)
 tunnel_id=$(read_assignment OPENAI_TUNNEL_ID)
 tunnel_runtime_key=$(read_assignment OPENAI_TUNNEL_RUNTIME_KEY)
+letsencrypt_email=$(read_assignment LETSENCRYPT_EMAIL)
+certificate="$repo_dir/oauth-proxy/certbot/conf/live/devspace-oauth/fullchain.pem"
 
 if [[ "$oauth_public_base_url" != https://* || -z "$tunnel_id" || -z "$tunnel_runtime_key" ]]; then
   printf '%s\n' "Base services installed. Configure OAUTH_PUBLIC_BASE_URL, OPENAI_TUNNEL_ID, and OPENAI_TUNNEL_RUNTIME_KEY in $env_file, then rerun ./start-mcp.sh."
   exit 0
 fi
 
+if [[ ! -f "$certificate" && -z "$letsencrypt_email" ]]; then
+  printf '%s\n' "Base services installed. Configure LETSENCRYPT_EMAIL in $env_file before the first TLS certificate request, then rerun ./start-mcp.sh."
+  exit 0
+fi
+
 if [[ -f "$repo_dir/oauth-proxy/docker-compose.yml" ]]; then
-  if [[ ! -f "$repo_dir/oauth-proxy/certbot/conf/live/devspace-oauth/fullchain.pem" ]]; then
+  if [[ ! -f "$certificate" ]]; then
     "$repo_dir/oauth-proxy/bootstrap.sh"
   else
     sudo docker compose --file "$repo_dir/oauth-proxy/docker-compose.yml" up --detach

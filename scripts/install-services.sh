@@ -57,6 +57,11 @@ install_system_dependencies() {
 
   [[ -r /etc/ssl/certs/ca-certificates.crt ]] || missing+=(ca-certificates)
   command -v curl >/dev/null 2>&1 || missing+=(curl)
+  command -v openssl >/dev/null 2>&1 || missing+=(openssl)
+  command -v python3 >/dev/null 2>&1 || missing+=(python3)
+  if ! command -v make >/dev/null 2>&1 || ! command -v g++ >/dev/null 2>&1; then
+    missing+=(build-essential)
+  fi
   command -v xz >/dev/null 2>&1 || missing+=(xz-utils)
   command -v unzip >/dev/null 2>&1 || missing+=(unzip)
   command -v setfacl >/dev/null 2>&1 || missing+=(acl)
@@ -107,6 +112,7 @@ install_node_if_needed() {
   sudo ln -sfn "/usr/local/lib/node-v${node_version}-linux-${arch}/bin/node" /usr/local/bin/node
   sudo ln -sfn "/usr/local/lib/node-v${node_version}-linux-${arch}/bin/npm" /usr/local/bin/npm
   sudo ln -sfn "/usr/local/lib/node-v${node_version}-linux-${arch}/bin/npx" /usr/local/bin/npx
+  hash -r
   trap - RETURN
   rm -rf "$tmp"
 
@@ -187,6 +193,41 @@ install_devspace_environment() {
   }
 }
 
+ensure_devspace_owner_token() {
+  local token
+  local tmp
+
+  if sudo grep -Eq '^DEVSPACE_OAUTH_OWNER_TOKEN=[^[:space:]#]{16,}$' "$devspace_env"; then
+    return 0
+  fi
+
+  token=$(openssl rand -hex 32)
+  tmp=$(mktemp)
+  trap 'rm -f "$tmp"' RETURN
+
+  if sudo grep -q '^DEVSPACE_OAUTH_OWNER_TOKEN=' "$devspace_env"; then
+    sudo awk -v token="$token" '
+      BEGIN { replaced = 0 }
+      /^DEVSPACE_OAUTH_OWNER_TOKEN=/ {
+        if (!replaced) {
+          print "DEVSPACE_OAUTH_OWNER_TOKEN=" token
+          replaced = 1
+        }
+        next
+      }
+      { print }
+    ' "$devspace_env" >"$tmp"
+  else
+    sudo cat "$devspace_env" >"$tmp"
+    printf '\nDEVSPACE_OAUTH_OWNER_TOKEN=%s\n' "$token" >>"$tmp"
+  fi
+
+  sudo install -o root -g devspace -m 0640 "$tmp" "$devspace_env"
+  trap - RETURN
+  rm -f "$tmp"
+  printf '%s\n' "Generated DEVSPACE_OAUTH_OWNER_TOKEN in $devspace_env."
+}
+
 grant_devspace_access() {
   local allowed_roots
   local root
@@ -254,6 +295,7 @@ sudo install -o root -g root -m 0755 "$repo_dir/scripts/run-openai-mcp-tunnel" /
 sudo install -o root -g root -m 0755 "$repo_dir/scripts/run-devspace" /usr/local/libexec/run-devspace
 sudo install -o root -g root -m 0755 "$repo_dir/scripts/devspace-oauth-gateway.mjs" /usr/local/libexec/devspace-oauth-gateway
 install_devspace_environment
+ensure_devspace_owner_token
 grant_devspace_access
 if [[ ! -e "$env_file" ]]; then
   tunnel_env_tmp=$(mktemp)
