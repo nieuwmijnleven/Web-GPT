@@ -174,7 +174,32 @@ sudo install -o root -g root -m 0755 "$repo_dir/scripts/devspace-oauth-gateway.m
 install_devspace_environment
 grant_devspace_access
 if [[ ! -e "$env_file" ]]; then
-  sudo install -o root -g devspace -m 0640 /dev/null "$env_file"
+  tunnel_env_tmp=$(mktemp)
+  trap 'rm -f "$tunnel_env_tmp"' EXIT
+  cat >"$tunnel_env_tmp" <<'EOF'
+# Public OAuth origin and canonical MCP resource identifier.
+OAUTH_PUBLIC_BASE_URL=
+MCP_PUBLIC_RESOURCE_URL=
+
+# Private DevSpace MCP endpoint and loopback OAuth gateway.
+DEVSPACE_MCP_URL=http://127.0.0.1:9191/mcp
+OAUTH_GATEWAY_LISTEN_ADDR=127.0.0.1:9292
+OPENAI_MCP_TUNNEL_TARGET_URL=http://127.0.0.1:9292/mcp
+
+# OpenAI Secure MCP Tunnel credentials and metadata.
+OPENAI_TUNNEL_ID=
+OPENAI_TUNNEL_RUNTIME_KEY=
+OPENAI_ORGANIZATION_ID=
+CHATGPT_WORKSPACE_ID=
+OPENAI_TUNNEL_PROFILE=devspace
+
+# Tunnel client runtime settings.
+TUNNEL_LOG_LEVEL=info
+TUNNEL_HEALTH_LISTEN_ADDR=127.0.0.1:8080
+EOF
+  sudo install -o root -g devspace -m 0640 "$tunnel_env_tmp" "$env_file"
+  rm -f "$tunnel_env_tmp"
+  trap - EXIT
 else
   sudo chown root:devspace "$env_file"
   sudo chmod 0640 "$env_file"
