@@ -16,6 +16,7 @@ Environment=HOST=127.0.0.1
 Environment=PORT=9191
 Environment=DEVSPACE_PUBLIC_BASE_URL=http://127.0.0.1:9191
 Environment=DEVSPACE_TOOL_MODE=full
+Environment=DEVSPACE_ARTIFACTS=1
 Environment=DEVSPACE_WIDGETS=off
 Environment=DEVSPACE_TRUST_PROXY=1
 Environment=DEVSPACE_LOG_LEVEL=info
