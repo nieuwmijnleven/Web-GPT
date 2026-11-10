@@ -46,7 +46,7 @@ STASH="nginx/conf.d/.inactive"
 CERT_NAME="devspace-oauth"
 CERT="certbot/conf/live/${CERT_NAME}/fullchain.pem"
 
-if [ -f "$CERT" ]; then
+if sudo test -f "$CERT"; then
   # 이미 인증서 존재 → HTTPS 설정이 stash 상태면 복원하고 nginx를 기동/검증한다.
   if [ -f "$STASH" ] && [ ! -f "$HTTPS_CONF" ]; then
     mv "$STASH" "$HTTPS_CONF"

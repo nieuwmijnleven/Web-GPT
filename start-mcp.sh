@@ -27,13 +27,13 @@ if [[ "$oauth_public_base_url" != https://* || -z "$tunnel_id" || -z "$tunnel_ru
   exit 0
 fi
 
-if [[ ! -f "$certificate" && -z "$letsencrypt_email" ]]; then
+if ! sudo test -f "$certificate" && [[ -z "$letsencrypt_email" ]]; then
   printf '%s\n' "Base services installed. Configure LETSENCRYPT_EMAIL in $env_file before the first TLS certificate request, then rerun ./start-mcp.sh."
   exit 0
 fi
 
 if [[ -f "$repo_dir/oauth-proxy/docker-compose.yml" ]]; then
-  if [[ ! -f "$certificate" ]]; then
+  if ! sudo test -f "$certificate"; then
     "$repo_dir/oauth-proxy/bootstrap.sh"
   else
     sudo docker compose --file "$repo_dir/oauth-proxy/docker-compose.yml" up --detach
